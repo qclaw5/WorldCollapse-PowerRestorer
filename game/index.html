@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#07070d">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>崩解世界 · 权能修复者 · 2026.11.12.1</title>
+<title>崩解世界 · 权能修复者 · 2026.11.12.2</title>
 <style>
 :root{
   --accent:#a86bff; --accent2:#5b2bbf; --accent-soft:rgba(168,107,255,.18);
@@ -384,9 +384,9 @@ const POWERS = [
     weapon:'律令之剑', tagline:'万物各行其位，各守其序',
     atk:{mode:'melee', dmg:23, cd:.34, range:48, arc:1.45, kb:110,
          blade:{mul:.5, speed:360, life:1.2, r:5}},
-    passive:'连续命中同一目标叠加「裁定」标记（最多 3 层），第 4 次命中触发额外审判伤害。',
+    passive:'连续命中同一目标叠加「裁定」标记（最多 3 层），第 4 次命中触发 1.5 倍审判伤害；近战与律令剑气命中均叠加层数。',
     skill:{ name:'秩序领域', duration:40, cooldown:15,
-      desc:'展开秩序领域：领域内敌人移动速度降低 40%、受到伤害增加 30%；自身攻击附带律令斩击。敌人开始燃烧后再次施放领域，每次使当前生效的秩序之炎与秩序燃烧各延长 15 秒，可重复叠加；未开始燃烧时施放不预存加成。' },
+      desc:'展开秩序领域：领域内敌人移动速度降低 40%、受到伤害增加 30%；自身每次攻击额外射出两道穿透律令斩击，并对近身目标追加律令裁决伤害。敌人开始燃烧后再次施放领域，每次使当前生效的秩序之炎与秩序燃烧各延长 15 秒，可重复叠加；未开始燃烧时施放不预存加成。' },
     brief:'近战 · 领域 · 稳定增伤' },
   { id:'space', name:'空间之权', color:'#35d6ff', color2:'#0b6f96', metal:'#c8f6ff',
     weapon:'裂隙指环', tagline:'两点之间，不必路过中间',
@@ -2010,7 +2010,7 @@ function makePlayer(pwId){
   return { x:G.arena.w/2, y:G.arena.h/2+60, vx:0, vy:0, r:6,
     hp:baseHp, hpMax:baseHp, face:1, aimX:1, aimY:0, swing:0,
     atkCd:0, dashCd:0, dashT:0, dashX:1, dashY:0, inv:0, hurtFlash:0,
-    skillCd:0, skillT:0, ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false,
+    skillCd:0, skillT:0, ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
     pw:P, atkCount:0, roll:0, aimAng:0, atkAng:0, tgt:null, lockFx:0, turnBoost:0,
     trail:[], trailT:0, dustT:0, hitShake:0, arcGhost:0 };
 }
@@ -2315,6 +2315,18 @@ function warShockwave(p,radius,damage,slow,knockback,duration){
   }
   G.shake=Math.max(G.shake,9);
 }
+function orderJudgement(p, e, dmg, ea){
+  if(!p || !e || e.dead) return;
+  p.markTarget = e.id;
+  e.mark = (e.mark||0) + 1;
+  if(e.mark < 4) return;
+  e.mark = 0;
+  damageEnemy(e, dmg*1.5, {big:true});
+  G.slashes.push({x:e.x,y:e.y-8,a:ea,arc:1.35,r:e.r+15,t:0,dur:.30,color:'#fff2c9'});
+  G.slashes.push({x:e.x,y:e.y-8,a:0,arc:TAU,r:e.r+26,t:0,dur:.34,color:'#ffe9a8'});
+  burst(e.x,e.y-8,16,'#ffe9a8',150);
+  G.shake=Math.max(G.shake,7);
+}
 function isOrderDomainActive(p){
   return !!(
     p && p.pw && p.pw.id==='order' &&
@@ -2368,13 +2380,7 @@ function doAttack(p){
       e.vx += dx/d*kb; e.vy += dy/d*kb;
       if(p.skillT>0 && P.id==='karma'){ e.burn = Math.max(e.burn, 3); e.weak = Math.max(e.weak, 4); e.slow = Math.max(e.slow, 4); }
       if(P.id==='order' && !e.dead){
-        e.mark=(e.mark||0)+1;
-        if(e.mark>=4){
-          e.mark=0;
-          damageEnemy(e,dmg*.8,{big:true});
-          G.slashes.push({x:e.x,y:e.y-8,a:ea,arc:1.35,r:e.r+15,t:0,dur:.28,color:'#fff2c9'});
-          burst(e.x,e.y-8,8,'#ffe9a8',110);
-        }
+        orderJudgement(p, e, dmg, ea);
         if(!e.dead && isOrderDomainActive(p) && dist2(e.x,e.y,p.x,p.y)<86*86){
           damageEnemy(e,dmg*.5,{big:true});
           G.slashes.push({x:e.x,y:e.y-8,a:ea,arc:.95,r:e.r+19,t:0,dur:.22,color:'#ffe9a8'});
@@ -2399,6 +2405,18 @@ function doAttack(p){
         r:A.blade.r, dmg:dmg*A.blade.mul, life:A.blade.life, t:0,
         color:P.color, pierce:0, owner:'p', hit:[], guide:5.2, blade:true,
         wallPierce:(P.id==='karma'||P.id==='order') && p.skillT>0 });
+    }
+    if(P.id==='order' && isOrderDomainActive(p)){
+      for(const off of [-.32,.32]){
+        const a2 = ang + off;
+        G.bullets.push({
+          x:p.x+Math.cos(a2)*16, y:p.y-10+Math.sin(a2)*16,
+          vx:Math.cos(a2)*470, vy:Math.sin(a2)*470,
+          r:6, dmg:dmg*.6, life:.85, t:0,
+          color:P.metal, pierce:1, owner:'p', hit:[], guide:3.0,
+          blade:true, decree:true, wallPierce:true
+        });
+      }
     }
   } else {
     const shots = A.spread||1;
@@ -2922,6 +2940,7 @@ function updateBullets(dt){
             else { for(const o of G.enemies) if(dist2(o.x,o.y,e.x,e.y)<60*60) damageEnemy(o, dmg*.6,{}); }
           }
           damageEnemy(e, dmg, {trueDmg: p.pw.id==='void'});
+          if(p.pw.id==='order' && b.blade && !b.decree) orderJudgement(p, e, dmg, Math.atan2(b.vy,b.vx));
           if(p.pw.id==='karma' && p.skillT>0){ e.burn=Math.max(e.burn,3); e.weak=Math.max(e.weak,4); e.slow=Math.max(e.slow,4); }
           burst(b.x,b.y,4,p.pw.color,70);
           if(b.pierce>0){ b.pierce--; } else { G.bullets.splice(i,1); break; }
@@ -3060,6 +3079,13 @@ function updateHud(){
     const bonus=karmaSkillDamageBonusActive() ? ' · 凝冥额外伤害 +100%' : '';
     passive.textContent=`业层 ${p.karma||0}/${KARMA_MAX_STACKS} · 伤害 +${((p.karma||0)*2).toFixed(0)}%${bonus}`;
     passive.style.color=p.pw.color;
+  } else if(p.pw.id==='order'){
+    passive.classList.remove('hidden');
+    const tgt = (p.markTarget!=null) ? G.enemies.find(o=>o.id===p.markTarget && !o.dead) : null;
+    const mk = tgt ? Math.min(3, tgt.mark||0) : 0;
+    const dom = isOrderDomainActive(p) ? ` · 领域 ${Math.ceil(p.skillT)}s` : '';
+    passive.textContent=`裁定 ${mk}/3${dom}`;
+    passive.style.color=p.pw.metal;
   } else passive.classList.add('hidden');
   $('#hud-collapse').style.width = G.collapse+'%';
   $('#hud-collapse-v').textContent = Math.floor(G.collapse)+'%';
