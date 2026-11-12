@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#07070d">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>崩解世界 · 权能修复者 · 2026.11.08.16</title>
+<title>崩解世界 · 权能修复者 · 2026.11.12.1</title>
 <style>
 :root{
   --accent:#a86bff; --accent2:#5b2bbf; --accent-soft:rgba(168,107,255,.18);
@@ -259,12 +259,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
         <div class="bar"><i id="collapse-fill" style="width:20%"></i></div>
         <span class="val" id="collapse-val">20%</span>
       </div>
-      <div class="chapters" id="map-chapters">
-<div class="ch"><i class="o"></i>起点关卡 <span class="d">5 关 · 11 张地图</span></div>
-<div class="ch"><i class="s"></i>标准关卡 <span class="d">2 关 · 8 张地图</span></div>
-<div class="ch"><i class="deepdot"></i>深层崩解 <span class="d">5 关 · 15 张地图</span></div>
-<div class="ch"><i class="postdot"></i>终末远征 <span class="d">38 关 · 88 张地图</span></div>
-</div>
+      <div class="chapters" id="map-chapters"></div>
 <div class="mapwrap" id="mapwrap"><div class="mapcanvas" id="mapcanvas"><svg id="mapsvg" preserveAspectRatio="none" viewBox="0 0 100 100"></svg></div></div>
       <div class="collapse" style="border:none;background:transparent;padding:2px 0">
         <span class="chip" id="chip-power">—</span>
@@ -518,7 +513,26 @@ for(const chapter of EXPANSION_CHAPTERS){
 }
 
 LEVELS.find(L=>L.id==='origin').finalBoss = false;
-LEVELS.forEach(L=>{ L.waves = L.parts * L.wavesPerPart; });
+
+// 关卡强度：每关至少 4 区域 / 每区至少 3 波；怪量与生命全面提升；Boss 每 5 关一个
+const MIN_PARTS = 4, MIN_WAVES = 3;
+const MOB_COUNT_MUL = 1.5, MOB_HP_BASE = 1.45, MOB_HP_PER_LEVEL = .03;
+LEVELS.forEach((L, i) => {
+  const seq = i + 1;
+  while(L.mapNames.length < MIN_PARTS) L.mapNames.push(`${L.chapterShort}·区域 ${L.mapNames.length+1}`);
+  L.parts = Math.max(MIN_PARTS, L.parts, L.mapNames.length);
+  L.wavesPerPart = Math.max(MIN_WAVES, L.wavesPerPart);
+  const perLen = L.per.length, perLast = L.per[perLen-1] || 6;
+  while(L.per.length < L.wavesPerPart) L.per.push(perLast + (L.per.length - perLen + 1)*2);
+  L.per = L.per.map(v => Math.round(v * MOB_COUNT_MUL) + Math.floor(i/10));
+  L.waves = L.parts * L.wavesPerPart;
+  L.boss = (seq % 5 === 0);
+  L.finalBoss = (seq === LEVELS.length);
+  if(i >= 15){
+    const ci = EXPANSION_CHAPTERS.findIndex(c => c.name === L.chapter);
+    if(ci >= 0) L.tier = (ci % 2 === 0) ? 'deep' : 'post';
+  }
+});
 const WORLD_MAP_COLS=4;
 const WORLD_MAP_ROWS=Math.ceil(LEVELS.length/WORLD_MAP_COLS);
 LEVELS.forEach((L,i)=>{
@@ -2131,7 +2145,7 @@ function spawnEnemy(type, at){
     if(free(ax,ay)){ x=ax; y=ay; }
   }
   const levelIndex=Math.max(0,LEVELS.findIndex(L=>L.id===G.levelId));
-  const hpScale=1+Math.max(0,levelIndex-14)*.025;
+  const hpScale = T.boss ? (1.15 + levelIndex*.025) : (MOB_HP_BASE + levelIndex*MOB_HP_PER_LEVEL);
   const scaledHp=Math.round(T.hp*hpScale);
   const e = { id:randi(1,9999), type, x, y, vx:0, vy:0, r:T.r, hp:scaledHp, hpMax:scaledHp,
     cool:rand(.4,1.6), hurt:0, burn:0, slow:0, weak:0, charging:0, chargeCd:rand(1,3),
@@ -3239,6 +3253,19 @@ function drawUltGlyph(cv,U){
 }
 function buildMap(){
   const d=Save.data, wrap=$('#mapwrap'), canvas=$('#mapcanvas'), svg=$('#mapsvg');
+  const chaptersEl=$('#map-chapters');
+  if(chaptersEl){
+    const groups=[];
+    LEVELS.forEach(L=>{
+      let g=groups.find(g=>g.name===L.chapter);
+      if(!g){ g={name:L.chapter, levels:0, maps:0}; groups.push(g); }
+      g.levels++; g.maps+=L.parts;
+    });
+    const dots=['o','s','deepdot','postdot'];
+    chaptersEl.innerHTML=groups.map((g,i)=>
+      `<div class="ch"><i class="${dots[i%dots.length]}"></i>${g.name} <span class="d">${g.levels} 关 · ${g.maps} 张地图</span></div>`
+    ).join('');
+  }
   canvas.querySelectorAll('.node').forEach(n=>n.remove());
   svg.innerHTML=''; wrap.scrollTop=0;
   for(let i=0;i<LEVELS.length-1;i++){
