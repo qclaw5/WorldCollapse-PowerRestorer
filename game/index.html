@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#07070d">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>崩解世界 · 权能修复者 · 2026.11.12.2</title>
+<title>崩解世界 · 权能修复者 · 2026.11.12.3</title>
 <style>
 :root{
   --accent:#a86bff; --accent2:#5b2bbf; --accent-soft:rgba(168,107,255,.18);
@@ -140,6 +140,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 #hud .bar span{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(8px,2vmin,11px);
   letter-spacing:.1em;text-shadow:0 1px 0 #000;color:#fff}
 #hud .pname{font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;color:var(--accent);text-shadow:0 2px 0 #000;margin-bottom:4px}.pname.passive{font-size:clamp(8px,1.9vmin,10px);letter-spacing:.08em;margin-top:-2px;margin-bottom:5px}
+.passive.order-mark{font-size:clamp(11px,2.6vmin,14px);font-weight:700;letter-spacing:.1em;text-shadow:0 0 10px rgba(255,233,168,.8),0 0 3px rgba(255,233,168,.9);margin-top:0;margin-bottom:5px}
 .pad{position:absolute;right:calc(12px + var(--safe-r));bottom:calc(14px + var(--safe-b));
   display:grid;grid-template-columns:repeat(2,auto);gap:clamp(8px,2vmin,16px);align-items:end;justify-items:center}
 .pbtn{pointer-events:auto;width:clamp(54px,13vmin,78px);height:clamp(54px,13vmin,78px);border-radius:50%;
@@ -1650,7 +1651,7 @@ function drawEnemy(e){
   }
   if(e.burn>0 && Math.floor(t*8)%2===0){ pxc(e.x+randi(-4,4), e.y-10-randi(0,12), 1, '#ff9d4d', .9); }
   if(e.mark>0){
-    for(let i=0;i<Math.min(3,e.mark);i++) pxo(x-3+i*3,yy-29,2,2,'#ffe9a8',.95);
+    for(let i=0;i<Math.min(3,e.mark);i++) pxo(x-4+i*4,yy-29,3,3,'#ffe9a8',1);
   }
   if(hasOrderFlame(e)){
     ring(x,y-9,T.r+7,'#dceaff',.42+.12*Math.sin(t*9+e.id),1);
@@ -3071,22 +3072,23 @@ function updateHud(){
   $('#hud-en-t').textContent = p.ult>=100 ? '大招就绪！' : `大招 ${Math.floor(p.ult)}%`;
   const passive=$('#hud-passive');
   if(p.pw.id==='war'){
-    passive.classList.remove('hidden');
+    passive.classList.remove('hidden','order-mark');
     passive.textContent=p.warReady?'破军震荡 · READY':`战意 ${p.warHits}/4`;
     passive.style.color=p.warReady?'#ffe0b0':p.pw.color;
   } else if(p.pw.id==='karma'){
-    passive.classList.remove('hidden');
+    passive.classList.remove('hidden','order-mark');
     const bonus=karmaSkillDamageBonusActive() ? ' · 凝冥额外伤害 +100%' : '';
     passive.textContent=`业层 ${p.karma||0}/${KARMA_MAX_STACKS} · 伤害 +${((p.karma||0)*2).toFixed(0)}%${bonus}`;
     passive.style.color=p.pw.color;
   } else if(p.pw.id==='order'){
     passive.classList.remove('hidden');
+    passive.classList.add('order-mark');
     const tgt = (p.markTarget!=null) ? G.enemies.find(o=>o.id===p.markTarget && !o.dead) : null;
     const mk = tgt ? Math.min(3, tgt.mark||0) : 0;
     const dom = isOrderDomainActive(p) ? ` · 领域 ${Math.ceil(p.skillT)}s` : '';
-    passive.textContent=`裁定 ${mk}/3${dom}`;
+    passive.textContent=`◆ 裁定 ${mk}/3${dom}`;
     passive.style.color=p.pw.metal;
-  } else passive.classList.add('hidden');
+  } else { passive.classList.remove('order-mark'); passive.classList.add('hidden'); }
   $('#hud-collapse').style.width = G.collapse+'%';
   $('#hud-collapse-v').textContent = Math.floor(G.collapse)+'%';
   if(G.phase==='core'){
