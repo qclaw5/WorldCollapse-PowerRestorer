@@ -225,6 +225,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <div class="foot">
             <button class="pxbtn primary" id="btn-start">开 始 修 复</button>
             <button class="pxbtn ghost" id="btn-continue">继 续 存 档</button>
+            <button class="pxbtn ghost" id="btn-shop">卷 轴 商 店</button>
             <button class="pxbtn ghost" id="btn-admin">管 理 员 模 式</button>
           </div>
           <div style="margin-top:1.6em;color:#5d5878;font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;line-height:2">
@@ -269,13 +270,35 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
         </div>
         <div class="detail-title" style="margin-top:10px">卷 轴</div>
         <div class="admin-btns">
-          <button class="pxbtn primary" id="dbg-scroll-all">记录全部招式</button>
+          <button class="pxbtn primary" id="dbg-scroll-all">随机换 1 个招式</button>
           <button class="pxbtn primary" id="dbg-skill-all">习得 4 个技能</button>
         </div>
-        <div class="skill-desc" style="margin-top:6px">招式卷轴记录后每次普攻随机触发（间隔 ≥0.22s）；技能卷轴含格挡 F / 弹反 / 冲刺斩击 / 突刺，写入存档。</div>
+        <div class="skill-desc" style="margin-top:6px">招式卷轴同时只能持有 1 种（可在「卷轴商店」挑选），作为普攻追加效果触发，间隔 ≥0.22s，不会替换普攻；技能卷轴含格挡 F / 弹反 / 冲刺斩击 / 突刺，写入存档。</div>
         <div class="skill-desc" style="margin-top:6px">疾风拳套（测试装备）：攻速不再受武器频率限制；两次攻击间隔越短单次伤害越低（间隔 ≥0.30s 满伤，瞬连最低 18%）。</div>
         <div class="detail-title" style="margin-top:10px">实 时 状 态</div>
         <div id="dbg-grid" class="skill-desc">—</div>
+      </div>
+    </section>
+    <section class="screen hidden" id="scr-shop">
+      <div class="topbar">
+        <div class="sect-h" style="margin:0">卷 轴 商 店<small>招式仅可习得一种 · 技能卷轴可全部习得</small></div>
+        <button class="pxbtn ghost" id="btn-shop-back" style="padding:.45em .7em;font-size:clamp(9px,2.1vmin,12px)">返 回</button>
+      </div>
+      <div class="detail">
+        <div class="detail-title">招 式 卷 轴</div>
+        <div class="skill-desc">招式是普攻的<b>追加效果</b>，不会替换普攻；同时只能持有 1 种，习得新的会自动替换旧的。</div>
+        <div class="admin-btns" id="shop-scroll-list"></div>
+        <div class="skill-desc" style="margin-top:7px">裂空斩 · 前方扇形横扫｜回旋 · 周身环形斩｜连锁雷 · 最多 3 目标连锁｜碎冰 · 减速并生成护盾｜汲血 · 伤害转化生命｜爆裂 · 延迟范围爆炸</div>
+      </div>
+      <div class="detail">
+        <div class="detail-title">技 能 卷 轴</div>
+        <div class="skill-desc">习得后永久生效，可全部习得。</div>
+        <div class="admin-btns" id="shop-skill-list"></div>
+        <div class="skill-desc" style="margin-top:7px">格挡 · 按 F 消耗 25 点格挡条，0.45 秒完全免伤｜弹反 · 格挡成功追加金色斩击与击退｜冲刺斩击 · 冲刺结束接宽扇形横扫｜突刺 · 冲刺结束沿方向直刺并击退</div>
+      </div>
+      <div class="detail">
+        <div class="detail-title">当 前 持 有</div>
+        <div class="skill-desc" id="shop-owned">—</div>
       </div>
     </section>
     <section class="screen hidden" id="scr-power">
@@ -1043,6 +1066,7 @@ const G = {
 };
 Save.load();
 if(!Array.isArray(Save.data.scrolls)) Save.data.scrolls=[];
+if(Save.data.scrolls.length>1) Save.data.scrolls.length=1;
 if(!Array.isArray(Save.data.skills)) Save.data.skills=[];
 const SAVE_MAX_KEY = 'collapse_world_max_level_v1';
 function maxLevel(){
@@ -2716,7 +2740,7 @@ function doAttack(p){
         guide: (P.id==='space'?7.5:P.id==='fate'?3.2:5.5)+(cfx?cfx.guideAdd:0), wallPierce:P.id==='space' });
     }
   }
-  tryCastScroll(p, ang, dmg);
+  try{ tryCastScroll(p, ang, dmg); }catch(err){}
 }
 function rollFate(p, dmg){
   const r = Math.random();
@@ -2980,10 +3004,10 @@ function scrollFoes(x,y,r){ return G.enemies.filter(e=>!e.dead && dist2(e.x,e.y-
 function scrollHit(e,v){ damageEnemy(e,v,{big:true}); }
 function tryCastScroll(p,ang,base){
   const ids=Save.data.scrolls||[]; if(!ids.length) return null;
+  const def=SCROLL_MAP[ids[0]]; if(!def) return null;
   if(G.time-(p.lastScrollT||-99)<SCROLL_MIN_GAP) return null;
-  const id=ids[randi(0,ids.length-1)], def=SCROLL_MAP[id];
-  if(!def) return null;
   p.lastScrollT=G.time;
+  // 招式只是普攻的追加特效：doAttack 的普攻在此之前已经全部生成，这里绝不改动或替换它
   G.slashes.push({x:p.x,y:p.y-8,a:ang,arc:1.1,r:34,t:0,dur:.20,color:def.color});
   try{ def.cast(p,ang,base,def); }catch(err){}
   return def;
@@ -3039,12 +3063,60 @@ function scrollHudText(){
   return [guard,`招式 ${sc}/6`,`技能 ${sk}/4`].filter(Boolean).join(' · ');
 }
 function adminLearnScrolls(){
-  Save.data.scrolls=SCROLL_IDS.slice(); Save.save();
-  toast('已记录全部 6 种招式卷轴');
+  const cur=(Save.data.scrolls||[])[0];
+  const rest=SCROLL_IDS.filter(id=>id!==cur);
+  learnScroll(rest.length ? rest[randi(0,rest.length-1)] : SCROLL_IDS[0]);
 }
 function adminLearnSkills(){
   Save.data.skills=SKILL_IDS.slice(); Save.save();
   toast('已习得 4 个技能卷轴 · 战斗中按 F 格挡');
+}
+
+/* ===== 卷轴商店：招式同时只能持有 1 种，技能可全学 ===== */
+function learnScroll(id){
+  const def=SCROLL_MAP[id]; if(!def) return;
+  Save.data.scrolls=[id]; Save.save();
+  toast('已习得 '+def.name+' · 招式同时只能持有 1 种');
+  buildShop();
+}
+function learnSkill(id){
+  const def=SKILL_DEFS.find(s=>s.id===id);
+  if(!def || skillLearned(id)) return;
+  Save.data.skills.push(id); Save.save();
+  toast('已习得 '+def.name);
+  buildShop();
+}
+function buildShop(){
+  const sl=$('#shop-scroll-list'), kl=$('#shop-skill-list'), own=$('#shop-owned');
+  const cur=(Save.data.scrolls||[])[0]||null;
+  if(sl){
+    sl.innerHTML='';
+    for(const s of SCROLLS){
+      const b=document.createElement('button');
+      b.className='pxbtn'+(cur===s.id?' primary':'');
+      b.textContent=(cur===s.id?'✓ ':'')+s.name;
+      b.addEventListener('click', ()=>learnScroll(s.id));
+      sl.appendChild(b);
+    }
+  }
+  if(kl){
+    kl.innerHTML='';
+    for(const s of SKILL_DEFS){
+      const got=skillLearned(s.id);
+      const b=document.createElement('button');
+      b.className='pxbtn'+(got?' primary':'');
+      b.textContent=(got?'✓ ':'')+s.name;
+      if(got) b.disabled=true;
+      b.addEventListener('click', ()=>learnSkill(s.id));
+      kl.appendChild(b);
+    }
+  }
+  if(own){
+    const scName=(cur&&SCROLL_MAP[cur])?SCROLL_MAP[cur].name:'未习得';
+    const kn=(Save.data.skills||[]).map(id=>{ const x=SKILL_DEFS.find(s=>s.id===id); return x?x.name:id; });
+    own.textContent='招式：'+scName+'　·　技能：'+(kn.length?kn.join(' / '):'未习得')
+      +'（'+(Save.data.skills||[]).length+'/'+SKILL_DEFS.length+'）';
+  }
 }
 
 function trySkill2(p){
@@ -3789,7 +3861,7 @@ function showScreen(name){
   $('#scr-result').classList.add('hidden');
   $('#scr-pause').classList.add('hidden');
   $('#hud').classList.toggle('hidden', name!=='battle');
-  const map = {title:'#scr-title', power:'#scr-power', ult:'#scr-ult', map:'#scr-map', admin:'#scr-admin'};
+  const map = {title:'#scr-title', power:'#scr-power', ult:'#scr-ult', map:'#scr-map', admin:'#scr-admin', shop:'#scr-shop'};
   if(map[name]) $(map[name]).classList.remove('hidden');
 }
 function togglePause(){
@@ -4093,6 +4165,9 @@ function setupUI(){
   $('#btn-resume').addEventListener('click', ()=>togglePause());
   $('#btn-quit').addEventListener('click', ()=>{ G.paused=false; G.running=false; buildMap(); showScreen('map'); });
   addEventListener('keydown', e=>{ if(e.key==='Shift') Input.dashReq=true; });
+  /* 卷轴商店 */
+  $('#btn-shop').addEventListener('click', ()=>{ buildShop(); showScreen('shop'); });
+  $('#btn-shop-back').addEventListener('click', ()=>showScreen('title'));
   /* 管理员模式 */
   $('#btn-admin').addEventListener('click', ()=>{ syncDevUI(); updateDebugPanel(); showScreen('admin'); });
   $('#btn-admin-back').addEventListener('click', ()=>showScreen('title'));
