@@ -2892,7 +2892,7 @@ const S2 = {
       G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:52,t:0,dur:.35,color:'#ffcc44'}); },
     tick(p,s,dt){ const d=s.data; if(!d) return; d.acc+=dt;
       if(d.acc>=.5){ d.acc=0; G.parts.push(mkPart(d.x,d.y,'#ffcc44',{sp:20,life:.3,size:2,g:-10})); } },
-    second(p,s){ s2TimeReturn(p,s); }, expire(p,s){ s2TimeReturn(p,s); }
+    second(p,s){ s2TimeReturn(p,s,true); }, expire(p,s){ s2TimeReturn(p,s,false); }
   },
   life:{ name:'荆棘缚环', btn:'藤环', secondHint:'引爆', cd:2.4, dur:2.4, color:'#58e08a', dark:'#1f7a4a',
     desc:'藤环束缚目标并持续吸取生命；再按一次二技能提前引爆，对周围造成伤害与击退并治疗自身。身边没敌人时改为生息脉冲。',
@@ -2938,11 +2938,12 @@ const S2 = {
     second(p,s){ s2VoidBurst(p,s,true); }, expire(p,s){ s2VoidBurst(p,s,false); }
   }
 };
-function s2TimeReturn(p,s){ const d=s.data; if(!d) return;
+function s2TimeReturn(p,s,manual){ const d=s.data; if(!d) return;
   const ox=p.x, oy=p.y-8;
   p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y+8,20,G.arena.h-14); resolveBlocks(p);
   healPlayer(p.hpMax*.2); p.inv=Math.max(p.inv,.5);
   s2Area(ox,oy,80,42,'#ffcc44',170,false); s2Area(p.x,p.y-8,80,42,'#ffe9a8',170,false);
+  if(manual) G.freeze=Math.max(G.freeze,1);
   flash('#ffcc44',.3); s2Clear(p); }
 function s2LifeBurst(p,s,manual){ const d=s.data; if(!d) return;
   const e=d.target!=null?G.enemies.find(o=>o.id===d.target&&!o.dead):null;
