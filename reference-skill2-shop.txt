@@ -1,0 +1,719 @@
+/* ============================================================================
+   原文摘录 · wuzayishi/shishijiushishi  main/index.html
+   内容：二技能 SKILL2 全表 + 神秘商人 / 卷轴商店核心代码
+   以下全部为参考仓库原文，逐字复制，未做任何改写或适配。
+   方括号中的数字是原文件行号，便于对照查阅。
+   ============================================================================ */
+
+
+/* ---------- [1] 二技能定义表 SKILL2 · 原文 6604-6866 ---------- */
+const SKILL2 = {
+  karma:{ name:'业锁·因果链', btn:'业锁', secondHint:'拉回', cd:9, dur:3.1,
+    color:'#c9a6ff', dark:'#5b2bbf',
+    desc:'发射紫色锁链束缚并抓取敌人，期间持续造成抓取伤害；再次点击二技能把目标拉向自己，自动衔接一次伤害提升且带强击退的普攻。',
+    first(p,s){
+      const e=s2PickTarget(p,250);
+      const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.34;
+      const ox=p.x+Math.cos(a)*9, oy=p.y-10+Math.sin(a)*9;
+      s.data={ phase:'shoot',t:0,target:e?e.id:null,ang:a,ox,oy,x:ox,y:oy,
+        reach:e?Math.min(250,Math.hypot(e.x-p.x,(e.y-8)-(p.y-10))):150,acc:0 };
+      s.fx={type:'chain'};
+      flash('#a86bff',.16);
+    },
+    second(p,s){
+      const d=s.data; if(!d||d.phase!=='bound') return;
+      const e=s2Find(d.target); if(!e) return;
+      d.phase='pull'; d.t=0; d.px=e.x; d.py=e.y; d.ang=p.aimAng;
+      flash('#a86bff',.20); G.shake=Math.max(G.shake,3);
+      s2Ring(e.x,e.y-8,18,'#c9a6ff',.3);
+      toast('业锁回收 · 衔接普攻');
+    },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      const e=s2Find(d.target);
+      if(d.phase==='shoot'){
+        d.t+=dt;
+        const k=clamp(d.t/.20,0,1);
+        const tx=e?e.x:d.ox+Math.cos(d.ang)*d.reach;
+        const ty=e?e.y-8:d.oy+Math.sin(d.ang)*d.reach;
+        d.x=lerp(d.ox,tx,k); d.y=lerp(d.oy,ty,k);
+        if(Math.random()<.7) G.parts.push(mkPart(d.x,d.y,'#d9c7ff',{sp:10,life:.18,size:1,g:0}));
+        if(k>=1){
+          if(e){
+            d.phase='bound'; d.t=0; d.acc=0;
+            e.chain={root:true,t:2.6,owner:'karma'};
+            e.slow=Math.max(e.slow,2.6); e.weak=Math.max(e.weak,2.6);
+            damageEnemy(e,24,{noKb:true});
+            s2Ring(e.x,e.y-8,16,'#c9a6ff',.4);
+            s2Burst(e.x,e.y-8,'#c9a6ff',10,90);
+            toast('已束缚 · 再按一次 R 拉回');
+          } else { d.phase='miss'; d.t=0; s.dur=Math.min(s.dur,s.t+.25); }
+        }
+      } else if(d.phase==='bound'){
+        d.t+=dt;
+        if(!e){ s2Clear(p,false); return; }
+        d.x=e.x; d.y=e.y-8;
+        if(e.chain) e.chain.t=Math.max(0,e.chain.t-dt);
+        d.acc+=dt;
+        if(d.acc>=.35){ d.acc=0; damageEnemy(e,6,{tick:true,noKb:true}); }
+        if(d.t>=2.6) s2KarmaEnd(p,s,false);
+      } else if(d.phase==='pull'){
+        d.t+=dt;
+        if(!e){ s2Clear(p,false); return; }
+        const k=clamp(d.t/.22,0,1);
+        const cx=p.x+Math.cos(d.ang)*30, cy=p.y-10+Math.sin(d.ang)*30;
+        e.x=clamp(lerp(d.px,cx,k),14,G.arena.w-14);
+        e.y=clamp(lerp(d.py,cy+8,k),18,G.arena.h-12);
+        d.x=e.x; d.y=e.y-8;
+        if(Math.random()<.8) G.parts.push(mkPart(e.x,e.y-8,'#a86bff',{sp:20,life:.22,size:1,g:0}));
+        if(k>=1){
+          if(e.chain) e.chain=null;
+          e.slow=Math.max(e.slow,.6);
+          damageEnemy(e,18,{noKb:true});
+          s2Burst(e.x,e.y-8,'#c9a6ff',14,130);
+          s2Ring(e.x,e.y-8,22,'#ffe9a8',.35);
+          p.chainSlam={id:e.id,t:0,dur:1.1,used:false};
+          p.aimAng=d.ang; p.atkAng=d.ang; p.aimX=Math.cos(d.ang); p.aimY=Math.sin(d.ang);
+          p.face=p.aimX<0?-1:1; p.turnBoost=.34; p.atkCd=0;
+          doAttack(p);
+          s2Clear(p,false);
+          G.shake=Math.max(G.shake,4);
+        }
+      } else if(d.phase==='miss'){
+        d.t+=dt; if(d.t>=.25) s2Clear(p,false);
+      }
+    },
+    expire(p,s){ s2KarmaEnd(p,s,true); }
+  },
+  time:{ name:'刻印回溯', btn:'刻印', secondHint:'回溯', cd:10, dur:4.5,
+    color:'#ffcc44', dark:'#a06a10',
+    desc:'在原地留下时之刻印并短暂加速；4.5 秒内再按一次二技能回溯到刻印、回复生命，并在起点与终点各爆发一次时之刃。',
+    first(p,s){
+      s.data={x:p.x,y:p.y}; s.fx={type:'mark'};
+      p.s2haste=4.5;
+      s2Ring(p.x,p.y-8,18,'#ffcc44',.45);
+      flash('#ffcc44',.16);
+    },
+    second(p,s){
+      const d=s.data; if(!d) return;
+      const ox=p.x,oy=p.y-8;
+      p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y,minWalkY(p),G.arena.h-14);
+      p.hp=Math.min(p.hpMax,p.hp+18); p.inv=Math.max(p.inv,.35);
+      s2HitArea(ox,oy,70,55,{kbMul:1.1});
+      s2HitArea(p.x,p.y-8,70,55,{kbMul:1.1});
+      G.freeze=Math.max(G.freeze,.7);
+      s2Burst(ox,oy,'#ffcc44',14,140); s2Burst(p.x,p.y-8,'#ffcc44',14,140);
+      s2Ring(ox,oy,26,'#ffcc44',.4); s2Ring(p.x,p.y-8,26,'#fff0b8',.45);
+      flash('#ffcc44',.25); toast('回溯完成');
+      s2Clear(p,false);
+    },
+    tick(){},
+    expire(p,s){
+      const d=s.data; if(!d) return;
+      s2HitArea(d.x,d.y-8,60,30,{});
+      s2Burst(d.x,d.y-8,'#ffcc44',8,90);
+      s2Ring(d.x,d.y-8,20,'#ffcc44',.35);
+    }
+  },
+  life:{ name:'荆棘缚环', btn:'藤环', secondHint:'引爆', cd:10, dur:2.4,
+    color:'#58e08a', dark:'#1f7a4a',
+    desc:'藤环束缚目标并持续吸取生命；再按一次二技能提前引爆，对周围造成伤害与击退并治疗自身。身边没敌人时改为生息脉冲。',
+    first(p,s){
+      const e=s2PickTarget(p,210);
+      if(!e){
+        s.data={phase:'self',t:0,acc:0}; s.fx={type:'zone',r:56,follow:true};
+        p.hp=Math.min(p.hpMax,p.hp+10);
+        s2Ring(p.x,p.y-8,30,'#58e08a',.5);
+        toast('生息脉冲');
+        return;
+      }
+      const a=Math.atan2((e.y-8)-(p.y-10),e.x-p.x);
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.3;
+      e.chain={root:true,t:2.4,owner:'life'};
+      e.slow=Math.max(e.slow,2.4); e.weak=Math.max(e.weak,2.4);
+      damageEnemy(e,18,{noKb:true});
+      s.data={phase:'bound',target:e.id,t:0,acc:0,x:e.x,y:e.y-8};
+      s.fx={type:'chain'};
+      s2Ring(e.x,e.y-8,16,'#58e08a',.4);
+    },
+    second(p,s){ s2LifeBurst(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      if(d.phase==='bound'){
+        const e=s2Find(d.target); if(!e){ s2Clear(p,false); return; }
+        d.x=e.x; d.y=e.y-8;
+        if(e.chain) e.chain.t=Math.max(0,e.chain.t-dt);
+        d.acc+=dt;
+        if(d.acc>=.4){ d.acc=0; damageEnemy(e,5,{tick:true,noKb:true}); p.hp=Math.min(p.hpMax,p.hp+2.5); }
+        if(Math.random()<.25) G.parts.push(mkPart(e.x+rand(-8,8),e.y-8+rand(-8,8),'#58e08a',{sp:8,life:.3,size:1,g:-10}));
+      } else if(d.phase==='self'){
+        d.t+=dt;
+        if(d.t>=.5){ d.t=0; p.hp=Math.min(p.hpMax,p.hp+3); s2HitArea(p.x,p.y-8,56,8,{tick:true,noKb:true}); }
+      }
+    },
+    expire(p,s){ s2LifeBurst(p,s,false); }
+  },
+  fate:{ name:'双面骰', btn:'骰子', secondHint:'开骰', cd:11, dur:2.2,
+    color:'#ff6fa8', dark:'#8c2350',
+    desc:'掷出巨型骰子，飞行途中再按一次二技能可提前开骰；点数 ≥4 触发大范围裁决爆炸，≤3 改为全场轰击并累积命运点数。',
+    first(p,s){
+      const e=s2PickTarget(p,260);
+      const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.3;
+      const ox=p.x+Math.cos(a)*10, oy=p.y-10+Math.sin(a)*10;
+      s.data={ phase:'fly',t:0,ox,oy,x:ox,y:oy,
+        tx:e?e.x:p.x+Math.cos(a)*150, ty:e?e.y-8:p.y-10+Math.sin(a)*150,
+        face:randi(1,6),spin:0 };
+      s.fx={type:'dice'};
+    },
+    second(p,s){ const d=s.data; if(d&&d.phase==='fly') s2FateOpen(p,s,d.x,d.y); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      if(d.phase==='fly'){
+        d.t+=dt; d.spin+=dt*12;
+        const k=clamp(d.t/.32,0,1);
+        d.x=lerp(d.ox,d.tx,k); d.y=lerp(d.oy,d.ty,k);
+        if(k>=1) s2FateOpen(p,s,d.x,d.y);
+      } else if(d.phase==='done'){
+        d.t+=dt; if(d.t>=.6) s2Clear(p,false);
+      }
+    },
+    expire(){}
+  },
+  order:{ name:'律令方阵', btn:'方阵', secondHint:'审判', cd:11, dur:3,
+    color:'#cfe4ff', dark:'#4a6a9c',
+    desc:'在身前布下律令方阵，持续压制并削弱范围内敌人；再按一次二技能提前落下审判光柱，造成伤害与击退。',
+    first(p,s){
+      const e=s2PickTarget(p,220);
+      const q=e ? {x:clamp(e.x,16,G.arena.w-16),y:clamp(e.y,20,G.arena.h-16)} : s2AimPoint(p,92);
+      s.data={x:q.x,y:q.y,acc:0}; s.fx={type:'square'};
+      s2Ring(q.x,q.y-8,24,'#cfe4ff',.4);
+    },
+    second(p,s){ s2OrderFall(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      d.acc+=dt;
+      if(d.acc>=.3){
+        d.acc=0;
+        for(const e of G.enemies){
+          if(e.dead||e.hp<=0) continue;
+          if(dist2(e.x,e.y-8,d.x,d.y-8)<76*76){
+            damageEnemy(e,8,{tick:true,noKb:true});
+            e.weak=Math.max(e.weak,.35); e.slow=Math.max(e.slow,.35);
+          }
+        }
+      }
+    },
+    expire(p,s){ s2OrderFall(p,s,false); }
+  },
+  space:{ name:'折跃标记', btn:'裂隙', secondHint:'折跃', cd:9, dur:4,
+    color:'#35d6ff', dark:'#0b6f96',
+    desc:'向瞄准方向投放裂隙标记；再按一次二技能瞬移到标记，起点与终点各爆一次范围伤害并获得短暂无敌。',
+    first(p,s){
+      const q=s2AimPoint(p,116);
+      s.data={x:q.x,y:q.y}; s.fx={type:'mark'};
+      s2Ring(q.x,q.y-8,20,'#35d6ff',.45);
+    },
+    second(p,s){
+      const d=s.data; if(!d) return;
+      const ox=p.x,oy=p.y-8;
+      p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y,minWalkY(p),G.arena.h-14);
+      p.inv=Math.max(p.inv,.45); p.dashT=0;
+      s2HitArea(ox,oy,64,40,{kbMul:1.1});
+      s2HitArea(p.x,p.y-8,78,55,{kbMul:1.2});
+      for(const e of G.enemies) if(!e.dead&&dist2(e.x,e.y-8,p.x,p.y-8)<78*78) e.slow=Math.max(e.slow,1.2);
+      s2Burst(ox,oy,'#35d6ff',12,150); s2Burst(p.x,p.y-8,'#c8f6ff',16,160);
+      s2Ring(ox,oy,24,'#35d6ff',.4); s2Ring(p.x,p.y-8,30,'#c8f6ff',.5);
+      G.parts.push(mkPart(ox,oy,'#35d6ff',{sp:0,life:.35,size:3,g:0}));
+      flash('#35d6ff',.22); toast('折跃完成');
+      s2Clear(p,false);
+    },
+    tick(){},
+    expire(p,s){
+      const d=s.data; if(!d) return;
+      s2HitArea(d.x,d.y-8,60,30,{});
+      s2Burst(d.x,d.y-8,'#35d6ff',9,100);
+      s2Ring(d.x,d.y-8,20,'#35d6ff',.35);
+    }
+  },
+  void:{ name:'归零脉冲', btn:'归零', secondHint:'引爆', cd:12, dur:3,
+    color:'#b07bff', dark:'#2a1c40',
+    desc:'展开跟随自身的归零场，持续抹除敌方弹幕并造成真实伤害；再按一次二技能提前引爆，造成范围真伤与击退。',
+    first(p,s){
+      s.data={x:p.x,y:p.y-8,r:84,acc:0}; s.fx={type:'zone',follow:true};
+      s2Ring(p.x,p.y-8,30,'#b07bff',.5);
+    },
+    second(p,s){ s2VoidBurst(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      d.x=p.x; d.y=p.y-8;
+      for(let i=G.bullets.length-1;i>=0;i--){
+        const b=G.bullets[i];
+        if(b.owner==='e'&&dist2(b.x,b.y,d.x,d.y)<d.r*d.r){
+          G.parts.push(mkPart(b.x,b.y,'#b07bff',{sp:14,life:.25,size:1,g:0}));
+          G.bullets.splice(i,1);
+        }
+      }
+      d.acc+=dt;
+      if(d.acc>=.4){
+        d.acc=0;
+        for(const e of G.enemies){
+          if(e.dead||e.hp<=0) continue;
+          if(dist2(e.x,e.y-8,d.x,d.y)<d.r*d.r){
+            damageEnemy(e,9,{tick:true,trueDmg:true,noKb:true});
+            e.slow=Math.max(e.slow,.4);
+          }
+        }
+      }
+    },
+    expire(p,s){ s2VoidBurst(p,s,false); }
+  }
+};
+
+/* ---------- [2] 二技能帧驱动 · 原文 6868-6935 ---------- */
+  if(!Settings.data.skill2On) return;
+  const def=s2Def(p); if(!def) return;
+  const s=p.s2;
+  if(s.phase==='active'){ if(def.second) def.second(p,s); return; }
+  if(s.cd>0) return;
+  s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null; s.fx=null;
+  def.first(p,s);
+  toast(def.name);
+}
+function updateSkill2(dt){
+  const p=G.player; if(!p||!p.s2) return;
+  const s=p.s2;
+  if(s.cd>0) s.cd=Math.max(0,s.cd-dt);
+  if(p.s2haste>0) p.s2haste=Math.max(0,p.s2haste-dt);
+  if(p.chainSlam){
+    p.chainSlam.t+=dt;
+    if(p.chainSlam.t>=p.chainSlam.dur) p.chainSlam=null;
+  }
+  if(s.phase!=='active') return;
+  const def=s2Def(p); if(!def){ s2Clear(p,false); return; }
+  s.t+=dt;
+  if(def.tick) def.tick(p,s,dt);
+  if(s.phase!=='active') return;
+  if(s.t>=s.dur){ if(def.expire) def.expire(p,s); s2Clear(p,false); }
+}
+function s2DrawChain(x1,y1,x2,y2,col,dark,t){
+  const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1;
+  line(x1,y1,x2,y2,dark,.85,3);
+  line(x1,y1,x2,y2,col,.55,1);
+  const n=Math.max(2,Math.floor(len/7));
+  for(let i=0;i<=n;i++){
+    const u=i/n, xx=x1+dx*u, yy=y1+dy*u+Math.sin(t*13+i*.85)*1.1;
+    px(xx-2,yy-2,4,4,dark);
+    px(xx-1,yy-1,2,2,col);
+    if(i%2===0) px(xx,yy,1,1,'#ffffff');
+  }
+  px(x2-3,y2-3,6,6,dark); px(x2-2,y2-2,4,4,col); px(x2-1,y2-1,2,2,'#ffffff');
+}
+function drawSkill2Fx(){
+  const p=G.player; if(!p||!p.s2||p.s2.phase!=='active') return;
+  const s=p.s2, def=SKILL2[p.pw.id], d=s.data||{}, fx=s.fx||{}, t=s.t;
+  const col=def.color, dark=def.dark;
+  if(fx.type==='chain'){
+    const e=s2Find(d.target);
+    const flying=(d.phase==='shoot'||d.phase==='miss');
+    const tx=flying?d.x:(e?e.x:d.x), ty=flying?d.y:(e?e.y-8:d.y);
+    const a=Math.atan2(ty-(p.y-10),tx-p.x);
+    const sx=p.x+Math.cos(a)*9, sy=p.y-10+Math.sin(a)*9;
+    s2DrawChain(sx,sy,tx,ty,col,dark,t);
+    if(e&&!flying){
+      const r=(e.r||10)+8;
+      ring(e.x,e.y-8,r,col,.65+Math.sin(t*8)*.15,1);
+      ring(e.x,e.y-8,r+5,dark,.4,1);
+      line(e.x-r*.7,e.y-8-r*.4,e.x+r*.7,e.y-8+r*.4,col,.5,1);
+      line(e.x-r*.7,e.y-8+r*.4,e.x+r*.7,e.y-8-r*.4,col,.5,1);
+      for(let i=0;i<6;i++){
+        const ang=t*2.2+i*TAU/6;
+        px(e.x+Math.cos(ang)*(r+4)-1,e.y-8+Math.sin(ang)*(r+4)-1,2,2,i%2?'#ffffff':col);
+      }
+    }
+  } else if(fx.type==='mark'){
+    const x=d.x,y=d.y-8,k=.5+.5*Math.sin(t*7);
+    pxell(x,y+9,14,4,'#000',.25);
+    ring(x,y,9+k*2,col,.85,2); ring(x,y,20,col,.3,1);
+    for(let i=0;i<4;i++){
+      const ang=t*1.4+i*Math.PI/2;
+      px(x+Math.cos(ang)*15-1,y+Math.sin(ang)*15-1,3,3,i%2?'#ffffff':col);
+    }
+
+/* ---------- [3] 商品表 CONSUMABLES（药水/卷轴）· 原文 1098-1200 ---------- */
+const CONSUMABLES = [
+  /* ---------- 药水：金币 4 / 宝石 2 ---------- */
+  { id:'p_heal', kind:'potion', name:'生息药水', cur:'coin', cost:35, color:'#58e08a', tag:'回血',
+    desc:'立即回复 50 点生命，随后 8 秒内每秒再回 2 点。', fx:{heal:50,regen:2,dur:8} },
+  { id:'p_haste', kind:'potion', name:'疾行药水', cur:'coin', cost:40, color:'#4db8ff', tag:'机动',
+    desc:'12 秒内移动速度 +25%、攻击间隔 -12%。', fx:{spd:1.25,atkRate:.88,dur:12} },
+  { id:'p_edge', kind:'potion', name:'锐锋药水', cur:'coin', cost:45, color:'#ff9db0', tag:'输出',
+    desc:'12 秒内全部伤害 +22%、暴击率 +8%。', fx:{dmg:1.22,crit:.08,dur:12} },
+  { id:'p_ward', kind:'potion', name:'铁壁药水', cur:'coin', cost:45, color:'#ffd76b', tag:'防御',
+    desc:'立即获得 30 点护盾；12 秒内受到的伤害 -20%。', fx:{shield:30,taken:.80,dur:12} },
+  { id:'p_zero', kind:'potion', name:'归零药水', cur:'gem', cost:2, color:'#b07bff', tag:'解围',
+    desc:'立刻清空全场敌方弹幕，回复 30 点生命、补满 60 点护盾，6 秒内伤害 +10%。', fx:{clearBullets:true,heal:30,shield:60,dmg:1.10,dur:6} },
+  { id:'p_frenzy', kind:'potion', name:'狂沸药水', cur:'gem', cost:2, color:'#ff6b4d', tag:'高风险',
+    desc:'10 秒内伤害 +18%、攻击间隔 -30%，但受到的伤害 +15%。脆皮爆发药，别拿来扛 Boss。', fx:{dmg:1.18,atkRate:.70,taken:1.15,dur:10} },
+  /* ---------- 卷轴：记录后销毁，招式随机进入普攻池 ---------- */
+  { id:'s_cleave', kind:'scroll', name:'裂空斩卷轴', cur:'coin', cost:60, color:'#ff9d6b', tag:'扇形',
+    desc:'普攻额外甩出一道前方扇形斩：范围 64px，对扇形内敌人造成 42% 普攻伤害。',
+    cast(p,ang,base,d){
+      const O=bladeOrigin(p,ang), ax=O.x, ay=O.y;   /* 起点贴着刀身，不再凭空飘在身前 */
+      G.slashes.push({x:ax,y:ay,a:ang,arc:1.7,r:64,t:0,dur:.30,color:d.color});
+      for(const e of scrollFoes(ax,ay,64)){
+        const dx=e.x-ax, dy=(e.y-8)-ay;
+        const diff=Math.abs(((Math.atan2(dy,dx)-ang+Math.PI*3)%TAU)-Math.PI);
+        if(diff<=.85) scrollHit(e,base*.42);
+      }
+      for(let i=0;i<11;i++){ const a=ang+rand(-.8,.8), r=rand(14,62);
+        G.parts.push(mkPart(ax+Math.cos(a)*r,ay+Math.sin(a)*r,d.color,{sp:rand(40,110),life:rand(.16,.34),size:1,g:20})); }
+    } },
+  { id:'s_spin', kind:'scroll', name:'回旋卷轴', cur:'coin', cost:70, color:'#cfe4ff', tag:'环身',
+    desc:'普攻额外放出 360° 环身斩：半径 48px 内所有敌人受 34% 普攻伤害。贴脸群怪最稳。',
+    cast(p,ang,base,d){
+      const H=heroAnchor(p), cx=H.x, cy=H.y;
+      G.slashes.push({x:cx,y:cy,a:0,arc:TAU,r:48,t:0,dur:.28,color:d.color});
+      ring(cx,cy,44,d.color,.42,2);
+      for(const e of scrollFoes(cx,cy,48)) scrollHit(e,base*.34);
+      for(let i=0;i<12;i++){ const a=i*TAU/12+G.time;
+        G.parts.push(mkPart(cx+Math.cos(a)*46,cy+Math.sin(a)*46,'#ffffff',{sp:rand(20,60),life:rand(.18,.36),size:1,g:-8})); }
+    } },
+  { id:'s_chain', kind:'scroll', name:'连锁雷卷轴', cur:'coin', cost:80, color:'#8bd4ff', tag:'弹射',
+    desc:'普攻额外引出雷链：最多弹向 3 个敌人，各受 46% 普攻伤害并虚弱 2 秒。',
+    cast(p,ang,base,d){
+      const O=bladeOrigin(p,ang), ax=O.x, ay=O.y;   /* 起点贴着刀身，不再凭空飘在身前 */
+      const list=G.enemies.filter(e=>scrollAlive(e)&&dist2(e.x,e.y,ax,ay)<104*104)
+        .sort((a,b)=>dist2(a.x,a.y,ax,ay)-dist2(b.x,b.y,ax,ay)).slice(0,3);
+      let fx=ax, fy=ay;
+      for(const e of list){
+        line(fx,fy,e.x,e.y-8,d.color,.85,1);
+        line(fx+1,fy,e.x+1,e.y-8,'#ffffff',.45,1);
+        scrollHit(e,base*.46);
+        e.weak=Math.max(e.weak||0,2);
+        burst(e.x,e.y-8,6,'#ffffff',90);
+        fx=e.x; fy=e.y-8;
+      }
+      if(!list.length){ for(let i=0;i<6;i++) G.parts.push(mkPart(ax+rand(-20,20),ay+rand(-20,20),d.color,{sp:rand(20,70),life:.3,size:1,g:-10})); }
+    } },
+  { id:'s_frost', kind:'scroll', name:'碎冰卷轴', cur:'coin', cost:90, color:'#9ee8ff', tag:'控场',
+    desc:'普攻额外炸开冰环：半径 44px 内敌人受 30% 普攻伤害并冰缓 3 秒，同时给自己 +12 护盾。',
+    cast(p,ang,base,d){
+      const O=bladeOrigin(p,ang), ax=O.x, ay=O.y;   /* 起点贴着刀身，不再凭空飘在身前 */
+      ring(ax,ay,44,d.color,.55,2); ring(ax,ay,34,'#ffffff',.28,1);
+      for(const e of scrollFoes(ax,ay,44)){
+        scrollHit(e,base*.30);
+        e.slow=Math.max(e.slow||0,3); e.weak=Math.max(e.weak||0,1.5);
+      }
+      p.shield=Math.min(SHIELD_MAX,(p.shield||0)+12); p.shieldFlash=1;
+      for(let i=0;i<12;i++){ const a=i*TAU/12;
+        G.parts.push(mkPart(ax+Math.cos(a)*38,ay+Math.sin(a)*38,i%2?'#ffffff':d.color,{sp:rand(15,55),life:rand(.2,.45),size:1,g:-12})); }
+    } },
+  { id:'s_leech', kind:'scroll', name:'汲血卷轴', cur:'gem', cost:2, color:'#ff6fa8', tag:'续航',
+    desc:'普攻额外引出汲血触须：半径 56px 内敌人受 38% 普攻伤害，按实际伤害回复生命（单次最多 10）。',
+    cast(p,ang,base,d){
+      const O=bladeOrigin(p,ang), ax=O.x, ay=O.y;   /* 起点贴着刀身，不再凭空飘在身前 */
+      let total=0;
+      for(const e of scrollFoes(ax,ay,56)){
+        const before=e.hp; scrollHit(e,base*.38);
+        total+=Math.max(0,before-e.hp);
+        line(O.H.x,O.H.y,e.x,e.y-8,d.color,.4,1);
+      }
+      const heal=Math.min(10,total*.4);
+      if(heal>0){ p.hp=Math.min(p.hpMax,p.hp+heal);
+        for(let i=0;i<6;i++) G.parts.push(mkPart(p.x+rand(-7,7),p.y-8+rand(-7,7),d.color,{sp:rand(10,35),life:rand(.25,.5),size:1,g:-22})); }
+      ring(ax,ay,56,d.color,.28,1);
+    } },
+  { id:'s_blast', kind:'scroll', name:'爆裂卷轴', cur:'gem', cost:3, color:'#ff4d6a', tag:'爆发',
+    desc:'普攻在前方埋下延时爆核：0.32 秒后炸开半径 54px，造成 52% 普攻伤害并强力击退。',
+    cast(p,ang,base,d){
+      const O=bladeOrigin(p,ang,4), ax=O.x, ay=O.y;
+      ring(ax,ay,54,d.color,.26,1);
+      px(ax-2,ay-2,4,4,'#ffffff',1);
+      G.ultFx.push({t:0,dur:.36,done:false,fn:(dt,o)=>{
+        if(o.done||o.t<.32) return;
+        o.done=true;
+        G.slashes.push({x:ax,y:ay,a:0,arc:TAU,r:54,t:0,dur:.34,color:d.color});
+        ring(ax,ay,54,'#ffffff',.6,2);
+        burst(ax,ay,20,d.color,190);
+        for(const e of scrollFoes(ax,ay,54)) scrollHit(e,base*.52,{kbMul:.9});
+        G.shake=Math.max(G.shake||0,5);
+      }});
+    } }
+];
+const CONSUM_MAP = Object.fromEntries(CONSUMABLES.map(c=>[c.id,c]));
+const SCROLL_IDS = CONSUMABLES.filter(c=>c.kind==='scroll').map(c=>c.id);
+function scrollAlive(e){ return e && !e.dead && (e.spawnT||0)<=0; }
+
+/* ---------- [4] 技能卷轴 SKILL_DEFS · 原文 10109-10125 ---------- */
+const SKILL_DEFS = [
+  { id:'k_guard', kind:'skill', name:'格挡卷轴', cur:'coin', cost:90, color:'#ffd76b', tag:'防御',
+    desc:'习得后获得独立格挡按键 F（按键区左上圆钮）与左下角格挡条。每次格挡消耗 25 点（满 100），姿态 0.45 秒内被命中即完全免伤，并令攻击者僵持 0.9 秒；条清空后力竭 2.2 秒，期间无法格挡。' },
+  { id:'k_parry', kind:'skill', name:'弹反卷轴', cur:'gem', cost:3, color:'#ffe9a8', tag:'反击', req:'k_guard',
+    desc:'前置技能：格挡。每次格挡成功立即追加一次金色斩击，对身前 58px 内敌人造成 55% 普攻伤害并强力击退。' },
+  { id:'k_dashslash', kind:'skill', name:'冲刺斩击卷轴', cur:'coin', cost:100, color:'#8bd4ff', tag:'横扫',
+    desc:'冲刺结束的瞬间自动接一次宽扇形横扫：前方约 126° / 64px 内敌人受 48% 普攻伤害并被击退。' },
+  { id:'k_thrust', kind:'skill', name:'突刺卷轴', cur:'gem', cost:3, color:'#c9a6ff', tag:'直刺',
+    desc:'与冲刺斩击同一触发点，但形态是沿冲刺方向的窄长直刺：前方 96px / 半宽 16px 内敌人受 44% 普攻伤害，并沿刺击方向被推得更远。' }
+];
+for(const d of SKILL_DEFS){ CONSUMABLES.push(d); CONSUM_MAP[d.id]=d; }
+const SKILL_IDS = SKILL_DEFS.map(d=>d.id);
+const SKILL_MAP = Object.fromEntries(SKILL_DEFS.map(d=>[d.id,d]));
+const GUARD = {
+  max:100, cost:25, pose:.45, stun:.9, breakLock:2.2, regen:34,
+  parryDmg:.55, sweepDmg:.48, thrustDmg:.44,
+  sweepR:64, sweepHalfArc:1.1, thrustLen:96, thrustHW:16, minGap:.28
+
+/* ---------- [5] 购买逻辑 buyConsumable · 原文 1279-1310 ---------- */
+function buyConsumable(id){
+  const d=CONSUM_MAP[id]; if(!d) return;
+  if(d.kind==='scroll' && (Save.data.scrolls||[]).includes(id)){ toast('该招式已记录，无需重复购买'); return; }
+  /* 神秘商人：本轮未上架 / 已售罄一律拦截 */
+  const chk=merchantCanBuy(id);
+  if(!chk.ok){ merchantDeny(id,chk.why); return; }
+  const inv=Save.data.items||{};
+  if((inv[id]||0)>=BUFF_CAP.stackMax){ toast('「'+d.name+'」最多囤 '+BUFF_CAP.stackMax+' 件'); return; }
+  const key=d.cur==='gem'?'gems':'coins', unit=d.cur==='gem'?'◆':'G';
+  if((Save.data[key]||0)<d.cost){ toast((d.cur==='gem'?'宝石':'金币')+'不足 · 需要 '+d.cost+unit); return; }
+  Save.data[key]-=d.cost; inv[id]=(inv[id]||0)+1;
+  Save.data.items=inv; Save.save(); syncWallet();
+  const sold=merchantConsume(id);
+  toast('购得「'+d.name+'」×1'+(sold?' · 本轮售罄，'+MERCHANT.gemCost+' ◆ 可立即补货':''));
+  if(G.hall) hallBadge('购入 '+d.name+(sold?' · 售罄':''));
+  renderBagPanel(); renderGearPanel(); updateBagBadge();
+}
+function bagCount(){
+  const inv=Save.data.items||{};
+  return Object.values(inv).reduce((a,n)=>a+(Number.isFinite(n)?n:0),0);
+}
+/* 平衡护栏：三槽叠加后仍必须守住这些边界，防止任何组合把角色做成无敌 / 不可动 */
+const ARMOR_CAP = {
+  dmgTakenMin:.55, dmgTakenMax:1.15,
+  spdMin:.82,      spdMax:1.40,
+  hpMaxMax:90,     lifestealMax:.12,
+  blockMax:6,      thornsMax:.60, shieldRegenMax:3.5
+};
+function computeGearFx(eq){
+  const fx={ dmg:1, hpMax:0, dmgTaken:1, spd:1, crit:0, critMul:0,
+             coin:1, lifesteal:0, ult:1, kb:1, gale:false,
+             block:0, thorns:0, shieldRegen:0 };
+
+/* ---------- [6] 神秘商人：限量货架 / 补货 · 原文 2167-2310 ---------- */
+/* ============================================================
+   神秘商人：限量货架
+   · 每轮只上架 slots 个 SKU（商品数目限制），大部分道具有本轮购买次数上限
+   · 少数道具标「∞ 无限供应」；买完最后一次立即提示售罄
+   · 到点自动补货；也可花宝石立即刷新；刷新时大厅商人播放补货动画
+   ============================================================ */
+const MERCHANT = {
+  slots: 8,             /* 每轮最多上架的商品种类数 */
+  refreshSec: 90,       /* 定时补货周期（真实时间，离线也计时） */
+  gemCost: 2,           /* 宝石立即刷新价格 */
+  fxDur: 1.05,          /* 补货动画时长（秒） */
+  /* 小部分道具不限量：三件基础药水可反复买；装备 / 技能本身唯一，不标无限 */
+  unlimited: ['p_heal','p_haste','p_edge']
+};
+const MerchantFx = { t:0, dur:MERCHANT.fxDur, active:false, soldPulse:0, reason:'' };
+function freshShopState(){
+  return { seq:0, nextAt:0, reason:'init', listing:[], stock:{} };
+}
+function shopState(){
+  const d=Save.data;
+  if(!d.shop || typeof d.shop!=='object' || Array.isArray(d.shop)) d.shop=freshShopState();
+  const s=d.shop;
+  if(!Number.isFinite(s.seq)) s.seq=0;
+  if(!Number.isFinite(s.nextAt)) s.nextAt=0;
+  if(!Array.isArray(s.listing)) s.listing=[];
+  if(!s.stock || typeof s.stock!=='object' || Array.isArray(s.stock)) s.stock={};
+  /* 只保留合法 SKU，防止旧存档 / 手改数据混入 */
+  const valid=id=>!!(GEAR_MAP[id]||CONSUM_MAP[id]);
+  s.listing=[...new Set(s.listing.filter(valid))].slice(0,MERCHANT.slots);
+  const st={};
+  for(const id of s.listing){
+    const v=s.stock[id];
+    st[id]=(v===-1||v===null||v===Infinity)?-1:clamp(Math.floor(Number(v)||0),0,99);
+  }
+  s.stock=st;
+  return s;
+}
+function merchantItem(id){
+  return GEAR_MAP[id] ? { id, kind:'gear', cur:GEAR_MAP[id].cur, name:GEAR_MAP[id].name }
+       : CONSUM_MAP[id] ? { id, kind:CONSUM_MAP[id].kind, cur:CONSUM_MAP[id].cur, name:CONSUM_MAP[id].name }
+       : null;
+}
+function merchantUnlimited(id){ return MERCHANT.unlimited.includes(id); }
+function merchantStockOf(id){
+  if(merchantUnlimited(id)) return -1;                 /* -1 = 本轮无限供应 */
+  const it=merchantItem(id); if(!it) return 1;
+  if(it.kind==='gear'||it.kind==='scroll'||it.kind==='skill') return 1;
+  return it.cur==='gem' ? 2 : 3;                      /* 药水：金币 3 件 / 宝石 2 件 */
+}
+function merchantAvailable(id){
+  const g=GEAR_MAP[id], d=CONSUM_MAP[id];
+  if(g) return !Save.data.owned.includes(id);        /* 装备唯一，已拥有不再上架 */
+  if(!d) return false;
+  if(d.kind==='scroll') return !(Save.data.scrolls||[]).includes(id);
+  if(d.kind==='skill'){
+    if(typeof skillLearned==='function' && skillLearned(id)) return false;
+    if(d.req && typeof skillLearned==='function' && !skillLearned(d.req)) return false;
+    return true;
+  }
+  return true;                                        /* 药水常驻候选，背包上限由购买时拦截 */
+}
+function merchantCandidates(){
+  return [...GEAR_DEFS.map(g=>g.id), ...CONSUMABLES.map(c=>c.id)].filter(merchantAvailable);
+}
+function merchantPick(seq){
+  const all=merchantCandidates(), must=[];
+  /* 前置保障：格挡未习得时必须上架，否则弹反永远买不到 */
+  if(all.includes('k_guard')) must.push('k_guard');
+  /* 无限供应的少数道具每轮至少露面两件，剩下位置留给轮换 */
+  let inf=0;
+  for(const id of MERCHANT.unlimited){
+    if(inf>=2) break;
+    if(all.includes(id) && !must.includes(id)){ must.push(id); inf++; }
+  }
+  const rest=all.filter(id=>!must.includes(id));
+  rest.sort((a,b)=>hash01(a.length*17+seq*131+a.charCodeAt(0)*.7)
+                 -hash01(b.length*17+seq*131+b.charCodeAt(0)*.7));
+  return [...must,...rest].slice(0,MERCHANT.slots);
+}
+function merchantRefresh(reason, silent){
+  const s=shopState();
+  s.seq=(s.seq|0)+1;
+  s.reason=reason||'timer';
+  s.nextAt=Date.now()+MERCHANT.refreshSec*1000;
+  s.listing=merchantPick(s.seq);
+  s.stock={};
+  for(const id of s.listing) s.stock[id]=merchantStockOf(id);
+  Save.save();
+  MerchantFx.active=true; MerchantFx.t=0; MerchantFx.dur=MERCHANT.fxDur; MerchantFx.reason=s.reason;
+  if(!silent){
+    toast(reason==='gem'?'宝石刷新成功 · 货架已补货':'神秘商人 · 定时补货完成');
+    if(G.hall) hallBadge('神秘商人 · 补货完成');
+  }
+  /* 面板里的补货动画 */
+  const body=$('#gear-body'), bar=$('#shop-bar');
+  if(body && GearUI.tab==='shop'){
+    renderGearPanel();
+    const nb=$('#gear-body'); if(nb){ nb.classList.remove('restocking'); void nb.offsetWidth; nb.classList.add('restocking'); }
+    const nbar=$('#shop-bar'); if(nbar){ nbar.classList.remove('restocking'); void nbar.offsetWidth; nbar.classList.add('restocking'); }
+    setTimeout(()=>{ const a=$('#gear-body'), b=$('#shop-bar'); if(a)a.classList.remove('restocking'); if(b)b.classList.remove('restocking'); },1000);
+  }
+  try{ syncWallet(); }catch(e){}
+  try{ if(typeof updateDebugPanel==='function') updateDebugPanel(); }catch(e){}
+  return s;
+}
+/* 只重抽本轮上架，不重置倒计时 / 轮次（开发者补齐解锁后清理已拥有条目） */
+function merchantReroll(){
+  const s=shopState();
+  s.listing=merchantPick(s.seq);
+  s.stock={};
+  for(const id of s.listing) s.stock[id]=merchantStockOf(id);
+  Save.save();
+}
+function merchantGemRefresh(){
+  if((Save.data.gems||0)<MERCHANT.gemCost){
+    toast('宝石不足 · 立即刷新需要 '+MERCHANT.gemCost+' ◆'); return false;
+  }
+  Save.data.gems-=MERCHANT.gemCost;
+  merchantRefresh('gem',false);
+  return true;
+}
+function merchantTick(dt){
+  if(dt && MerchantFx.active){ MerchantFx.t+=dt; if(MerchantFx.t>=MerchantFx.dur) MerchantFx.active=false; }
+  if(MerchantFx.soldPulse>0) MerchantFx.soldPulse=Math.max(0,MerchantFx.soldPulse-(dt||0));
+  const s=shopState(), now=Date.now();
+  if(!s.nextAt || now>=s.nextAt){ merchantRefresh(s.seq?'timer':'init', !s.seq); }
+  /* 倒计时整秒才写 DOM，避免每帧重排 */
+  const el=$('#shop-timer');
+  if(el){
+    const sec=Math.max(0,Math.ceil((s.nextAt-now)/1000));
+    const txt=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+    if(el.textContent!==txt) el.textContent=txt;
+    const pr=$('#shop-progress');
+    if(pr) pr.style.width=(100*(1-clamp((s.nextAt-now)/(MERCHANT.refreshSec*1000),0,1))).toFixed(1)+'%';
+  }
+}
+function merchantStock(id){
+  const s=shopState();
+  return Object.prototype.hasOwnProperty.call(s.stock,id) ? s.stock[id] : null;
+}
+function merchantCanBuy(id){
+  const s=shopState();
+  if(!s.listing.includes(id)) return { ok:false, why:'off' };   /* 本轮未上架 */
+  const n=s.stock[id];
+
+/* ---------- [7] 商店 UI：商品行 / 货架 / 购买动作 · 原文 1452-1475, 1590-1615, 1720-1740 ---------- */
+function shopConsumableLine(d,inv){
+  const n=inv[d.id]||0, rec=(Save.data.scrolls||[]).includes(d.id);
+  const price=d.cost+(d.cur==='gem'?' ◆':' G');
+  const afford=(Save.data[d.cur==='gem'?'gems':'coins']||0)>=d.cost;
+  const tag=d.kind==='scroll'?'卷轴':'药水';
+  const chk=merchantCanBuy(d.id), sold=!rec && !chk.ok && chk.why==='sold';
+  let btn;
+  if(d.kind==='scroll'&&rec) btn='<button disabled>已 记 录 · 卷轴已销毁</button>';
+  else if(sold) btn='<button disabled>售 罄 · 待 补 货</button>';
+  else btn='<button class="pri" data-act="buycons" data-id="'+d.id+'"'+(afford?'':' disabled')+'>'+
+           (afford?'购 买 · '+price:'货 币 不 足')+'</button>';
+  if(n>0 && !(d.kind==='scroll'&&rec)) btn+=(d.kind==='scroll'
+      ? '<button data-act="usecons" data-id="'+d.id+'">立即记录招式</button>'
+      : '<button data-act="openbag">战斗中按 B 使用</button>');
+  return '<div class="gitem'+(rec?' eq':'')+(sold?' sold':'')+'"><div class="r1">'+
+    '<div class="nm" style="color:'+d.color+'">'+d.name+' <span style="color:#9a94b8;font-size:.85em">· '+tag+' / '+d.tag+'</span>'+
+      (rec?'<span class="stock-tag inf">已 记 录</span>':merchantStockTag(d.id))+'</div>'+
+    '<div class="pr'+(d.cur==='gem'?' gm':'')+'">'+price+'</div></div>'+
+    '<div class="ds">'+d.desc+'</div>'+
+    '<div class="gbal" style="border-color:'+d.color+'">持有 <b>×'+n+'</b> · '+
+      (d.kind==='scroll'?(rec?'招式已永久记录':'使用后卷轴销毁、招式永久保留'):'局内饮用 · 同类刷新不叠加 · 最多同时 '+BUFF_CAP.kinds+' 种')+'</div>'+
+    '<div class="btns">'+btn+'</div></div>';
+}
+function gearConsumableSummary(){
+    let h='<div class="gear-sect">神 秘 商 人<small>兜帽下只看得见一枚发亮的硬币。每轮只上 '+MERCHANT.slots+' 种货，买完即售罄，定时补货或用宝石刷新。</small></div>';
+    h+=shopBarHtml(s);
+    h+='<div class="gear-note">金币由关卡小怪<b>必定掉落</b>，怪物等级越高掉得越多；等级 ≥5 的怪物有概率掉落宝石，Boss 必掉。换图 / 结算时场上未拾取的货币会自动入账。</div>';
+    h+='<div class="gear-note"><b>消耗品</b>：药水在战斗中按 B 饮用，卷轴使用后<b>记录招式并自动销毁</b>。同类药水刷新不叠加，最多同时 4 种增益；卷轴已记录后不再上架。</div>';
+    const inv=Save.data.items||{};
+    for(const cur of ['coin','gem']){
+      const gears=GEAR_DEFS.filter(x=>x.cur===cur&&s.listing.includes(x.id));
+      const cons=CONSUMABLES.filter(c=>c.cur===cur&&s.listing.includes(c.id));
+      h+='<div class="gear-sect" style="margin-top:9px">'+(cur==='coin'?'金 币 货 架':'宝 石 货 架 · 高 级 道 具')+
+         '<small>本轮上架 '+(gears.length+cons.length)+' 种</small></div><div class="gear-list">';
+      if(!gears.length && !cons.length) h+='<div class="gitem"><div class="ds">本轮该货架无货 · 等待补货或用宝石刷新</div></div>';
+      for(const g of gears){
+        const owned=Save.data.owned.includes(g.id), eq=Save.data.equip[g.slot]===g.id;
+        const afford=(Save.data[cur==='gem'?'gems':'coins']||0)>=g.cost;
+        const chk=merchantCanBuy(g.id), sold=!owned&&!chk.ok&&chk.why==='sold';
+        let btn;
+        if(owned) btn=(eq?'<button disabled>已 装 备</button>':'<button class="pri" data-act="equip" data-id="'+g.id+'">装 备</button>');
+        else if(sold) btn='<button disabled>售 罄 · 待 补 货</button>';
+        else btn=(afford?'<button class="pri" data-act="buy" data-id="'+g.id+'">购 买</button>'
+                        :'<button data-act="buy" data-id="'+g.id+'" disabled>货 币 不 足</button>');
+        h+='<div class="gitem'+(eq?' eq':'')+(sold?' sold':'')+'"><div class="r1">'+
+           '<div class="nm" style="color:'+g.color+'">'+g.name+' <span style="color:#9a94b8;font-size:.85em">· '+GEAR_SLOTS.find(z=>z.id===g.slot).name+'</span>'+
+             (owned?'<span class="stock-tag inf">已 购 入</span>':merchantStockTag(g.id))+'</div>'+
+           '<div class="pr'+(cur==='gem'?' gm':'')+'">'+g.cost+(cur==='gem'?' ◆':' G')+'</div></div>'+
+           '<div class="ds">'+g.desc+'</div>'+armorBalanceLine(g)+'<div class="btns">'+btn+'</div></div>';
+      }
+  }
+  // 未持有的消耗品也能在局内直接补货（方便连续测试）
+  h+='<div class="bag-sect" style="margin-top:9px">现 场 补 货<small>用金币 / 宝石直接补，买完立刻能用</small></div>';
+  for(const cur of ['coin','gem']){
+    for(const d of CONSUMABLES.filter(c=>c.cur===cur && !(inv[c.id]>0))){
+      h+=consumableLine(d,inv,inBattle);
+    }
+  }
+  body.innerHTML=h;
+}
+function bagAction(e){
+  const b=e.target.closest('button[data-act]'); if(!b) return;
+  const id=b.dataset.id, act=b.dataset.act;
+  if(act==='buy') buyConsumable(id);
+  else if(act==='use'){
+    const d=CONSUM_MAP[id]; if(!d) return;
+    if(d.kind==='scroll') useScroll(id); else usePotion(id);
+  }
+  renderBagPanel(); updateBagBadge(); updateBuffHud();
+}
+function updateBuffHud(){
