@@ -151,8 +151,13 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 .pbtn.atk{width:clamp(66px,16vmin,96px);height:clamp(66px,16vmin,96px);border-color:var(--accent);
   background:radial-gradient(circle at 50% 35%,var(--accent-soft),rgba(18,16,32,.8));box-shadow:0 0 20px var(--accent-soft)}
 .pbtn.sk{border-color:var(--accent)}
-.pbtn.sk2{border-color:var(--accent2)}
 .pbtn.ult{border-color:#ffd76b}
+.dev-keyrow{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:9px}
+.dev-keyrow input{pointer-events:auto;flex:1;min-width:130px;max-width:260px;background:#0b0a14;
+  border:2px solid var(--line);color:#fff;padding:.55em .8em;font-size:clamp(10px,2.5vmin,13px)}
+.dev-keyrow input:focus{border-color:#ffd76b;outline:none}
+.admin-btns{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.admin-btns .pxbtn{padding:.5em .8em;font-size:clamp(10px,2.3vmin,12px)}
 .pbtn .cd{position:absolute;inset:0;border-radius:50%;background:rgba(4,4,10,.78);
   display:grid;place-items:center;text-align:center;white-space:pre-line;padding:3px;
   font-size:clamp(9px,2.4vmin,12px);line-height:1.25;letter-spacing:0;color:#fff}
@@ -212,6 +217,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <div class="foot">
             <button class="pxbtn primary" id="btn-start">开 始 修 复</button>
             <button class="pxbtn ghost" id="btn-continue">继 续 存 档</button>
+            <button class="pxbtn ghost" id="btn-admin">管 理 员 模 式</button>
           </div>
           <div style="margin-top:1.6em;color:#5d5878;font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;line-height:2">
             武器与弹幕会自动锁定并转向最近的敌人（转向带平滑过渡）<br>
@@ -220,6 +226,42 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
             触屏：左半屏拖动移动 · 右侧按钮操作
           </div>
         </div>
+      </div>
+    </section>
+    <section class="screen hidden" id="scr-admin">
+      <div class="topbar">
+        <div class="sect-h" style="margin:0">管 理 员 模 式<small>密钥开启 · 调试与测试</small></div>
+        <button class="pxbtn ghost" id="btn-admin-back" style="padding:.45em .7em;font-size:clamp(9px,2.1vmin,12px)">返 回</button>
+      </div>
+      <div class="detail">
+        <div class="detail-title">开 发 者 模 式</div>
+        <p class="skill-desc">输入密钥后开启开发者模式，开启状态持久化保存；关闭模式不会回收已解锁内容。密钥与参考仓库一致（纯小写拼音全拼）。</p>
+        <div class="dev-keyrow">
+          <input id="dev-key" type="text" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="输入小写拼音密钥">
+          <button class="pxbtn primary" id="btn-dev-unlock">开 启</button>
+          <button class="pxbtn ghost hidden" id="btn-dev-close">关 闭 模 式</button>
+        </div>
+        <div class="chip" id="dev-state" style="margin-top:8px">当前：关闭 · 需要密钥开启</div>
+      </div>
+      <div class="detail" id="admin-panel">
+        <div class="detail-title">调 试 操 作</div>
+        <div class="admin-btns">
+          <button class="pxbtn" id="dbg-heal">回满生命</button>
+          <button class="pxbtn" id="dbg-ult">充满大招</button>
+          <button class="pxbtn" id="dbg-collapse">崩解度归零</button>
+          <button class="pxbtn" id="dbg-unlock">解锁全部关卡</button>
+          <button class="pxbtn ghost" id="dbg-reset">清空存档</button>
+        </div>
+        <div class="detail-title" style="margin-top:10px">装 备 · 测 试 模 式</div>
+        <div class="admin-btns">
+          <button class="pxbtn primary" id="dbg-equip-gale">一键装备疾风拳套</button>
+          <button class="pxbtn" id="dbg-god">无敌：关</button>
+          <button class="pxbtn" id="dbg-instakill">一击必杀：关</button>
+          <button class="pxbtn" id="dbg-nocd">技能无冷却：关</button>
+        </div>
+        <div class="skill-desc" style="margin-top:6px">疾风拳套（测试装备）：攻速不再受武器频率限制；两次攻击间隔越短单次伤害越低（间隔 ≥0.30s 满伤，瞬连最低 18%）。</div>
+        <div class="detail-title" style="margin-top:10px">实 时 状 态</div>
+        <div id="dbg-grid" class="skill-desc">—</div>
       </div>
     </section>
     <section class="screen hidden" id="scr-power">
@@ -292,7 +334,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       <div class="bossbar" id="bossbar"><div class="n" id="boss-n">故障守卫</div><div class="bar"><i id="boss-hp"></i></div></div>
       <div class="pad">
         <div class="pbtn sk" id="b-skill">权能<small id="b-skill-n">Q</small><div class="cd hidden" id="b-skill-cd"></div></div>
-        <div class="pbtn sk2" id="b-skill2"><small id="b-skill2-n">R</small><div class="cd hidden" id="b-skill2-cd"></div></div>
+        <div class="pbtn sk" id="b-skill2">权能<small id="b-skill2-n">R</small><div class="cd hidden" id="b-skill2-cd"></div></div>
         <div class="pbtn ult" id="b-ult">大招<small id="b-ult-n">E</small><div class="cd hidden" id="b-ult-cd"></div></div>
         <div class="pbtn" id="b-dash">冲刺<small>Shift</small></div>
         <div class="pbtn atk" id="b-atk">攻击<small>长按</small></div>
@@ -361,8 +403,8 @@ const POWERS = [
     passive:'每次命中累积 1 层「业」，每层提升 2% 镰刀伤害（上限 175 层）；达到 100 层后，业力凝冥持续期间额外造成 100% 伤害',
     skill:{ name:'业力凝冥', duration:60, cooldown:90,
       desc:'镰刀伤害 +60% 并附加灼烧；业层达到 100 层后，本技能持续期间所有自身伤害额外 +100%；背后凝结死神虚影，使目标虚弱、移动迟缓；画面浮现暗角与紫色滤镜。' },
-    skill2:{ name:'业火回廊', duration:0, cooldown:3,
-      desc:'引爆周身业力：半径 190 内敌人受到「42 + 业层×1.4」点伤害，附加 5 秒灼烧、4 秒虚弱与 3 秒减速；业层不消耗。' },
+    skill2:{ name:'业锁·因果链', duration:0, cooldown:2.6,
+      desc:'发射紫色锁链束缚并抓取敌人，期间持续造成抓取伤害；再次点击二技能把目标拉向自己，自动衔接一次伤害提升且带强击退的普攻。' },
     brief:'近战 · 高爆发 · 持续灼烧' },
   { id:'time', name:'时间之权', color:'#ffcc44', color2:'#a06a10', metal:'#fff0b8',
     weapon:'金辉怀表', tagline:'时间，是可以被拨动的齿轮',
@@ -370,8 +412,8 @@ const POWERS = [
     passive:'移动时会留下时之残影，残影消散时对周围造成少量伤害',
     skill:{ name:'时间暂停', duration:10, cooldown:45,
       desc:'冻结全场敌人与弹幕 10 秒，自身行动如常，画面转为金色调。' },
-    skill2:{ name:'时序回溯', duration:2.5, cooldown:3,
-      desc:'回溯伤势：立即回复 35% 最大生命，2.5 秒无敌，冻结全场敌人与弹幕 2 秒，并缩短 Q 技能冷却 12 秒。' },
+    skill2:{ name:'刻印回溯', duration:2.5, cooldown:2.8,
+      desc:'在原地留下时之刻印并短暂加速；4.5 秒内再按一次二技能回溯到刻印、回复生命，并在起点与终点各爆发一次时之刃。' },
     brief:'远程 · 控制 · 安全输出' },
   { id:'life', name:'生命之权', color:'#58e08a', color2:'#1f7a4a', metal:'#c8ffdc',
     weapon:'生息藤杖', tagline:'一切伤口，终会发芽',
@@ -379,8 +421,8 @@ const POWERS = [
     passive:'每 8 秒自动回复少量生命；周围敌人越多，回复越快',
     skill:{ name:'生命绽放', duration:12, cooldown:40,
       desc:'持续回复生命；荆棘环绕对近身敌人反伤，藤蔓束缚使其减速。' },
-    skill2:{ name:'荆棘结界', duration:8, cooldown:3,
-      desc:'展开跟随自身的荆棘结界 8 秒：每秒回复 6 点生命，结界内敌人持续受到伤害并被束缚减速。' },
+    skill2:{ name:'荆棘缚环', duration:8, cooldown:2.4,
+      desc:'藤环束缚目标并持续吸取生命；再按一次二技能提前引爆，对周围造成伤害与击退并治疗自身；身边没敌人时改为生息脉冲。' },
     brief:'远程 · 续航 · 反伤' },
   { id:'fate', name:'命运之权', color:'#ff6fa8', color2:'#8c2350', metal:'#ffd0e4',
     weapon:'命运骰', tagline:'骰子落下之前，胜负无人知晓',
@@ -388,8 +430,8 @@ const POWERS = [
     passive:'攻击有 25% 概率掷出命运：暴击 / 连击 / 减速 / 爆裂',
     skill:{ name:'命运轮盘', duration:15, cooldown:35,
       desc:'轮盘常转：每次攻击必定触发随机命运效果，并大幅提升触发威力。' },
-    skill2:{ name:'逆转骰面', duration:8, cooldown:3,
-      desc:'立即降下 6 次随机天罚；随后 8 秒内每次攻击必定触发命运效果，且命运伤害再提升 30%。' },
+    skill2:{ name:'双面骰', duration:8, cooldown:3.0,
+      desc:'掷出巨型骰子，飞行途中再按一次二技能可提前开骰；点数 ≥4 触发大范围裁决爆炸，≤3 改为全场轰击。' },
     brief:'远程 · 随机 · 高风险高回报' },
   { id:'order', name:'秩序之权', color:'#cfe4ff', color2:'#4a6a9c', metal:'#ffe9a8',
     weapon:'律令之剑', tagline:'万物各行其位，各守其序',
@@ -398,7 +440,7 @@ const POWERS = [
     passive:'连续命中同一目标叠加「裁定」标记（最多 3 层），第 4 次命中触发 1.5 倍审判伤害；近战与律令剑气命中均叠加层数。',
     skill:{ name:'秩序领域', duration:40, cooldown:15,
       desc:'展开秩序领域：领域内敌人移动速度降低 40%、受到伤害增加 30%；自身每次攻击额外射出两道穿透律令斩击，并对近身目标追加律令裁决伤害。敌人开始燃烧后再次施放领域，每次使当前生效的秩序之炎与秩序燃烧各延长 15 秒，可重复叠加；未开始燃烧时施放不预存加成。' },
-    skill2:{ name:'即刻裁决', duration:0, cooldown:3,
+    skill2:{ name:'即刻裁决', duration:0, cooldown:2.5,
       desc:'为全场敌人直接叠满「裁定」并立即触发一次审判伤害，同时施加 3 秒减速与虚弱。' },
     brief:'近战 · 领域 · 稳定增伤' },
   { id:'space', name:'空间之权', color:'#35d6ff', color2:'#0b6f96', metal:'#c8f6ff',
@@ -407,8 +449,8 @@ const POWERS = [
     passive:'空间弹体穿墙贯穿敌人、伤害 +50%；冲刺瞬移；空间闪避基础 75%，每只存活普通怪 +1.5%，有存活 Boss +15%；携带空间坍缩再 +15% 闪避（最高 100%）；携带时之终焉时自身造成的伤害额外 +100%；闪避免疫本次伤害与僵直',
     skill:{ name:'空间折叠', duration:8, cooldown:25,
       desc:'瞬移距离翻倍，残影在原地爆裂造成范围伤害；期间移动速度提升。' },
-    skill2:{ name:'裂隙坍缩', duration:0, cooldown:3,
-      desc:'在最近敌人处撕开裂隙：半径 210 内敌人受到 90 点穿透伤害并被牵引 1.2 秒；自身瞬移至裂隙边缘并获得 0.6 秒无敌。' },
+    skill2:{ name:'折跃标记', duration:0, cooldown:2.7,
+      desc:'向瞄准方向投放裂隙标记；再按一次二技能瞬移到标记，起点与终点各爆一次范围伤害并获得短暂无敌。' },
     brief:'远程 · 位移 · 机动' },
   { id:'void', name:'虚无之权', color:'#b07bff', color2:'#2a1c40', metal:'#e0d4ff',
     weapon:'虚无之核', tagline:'被抹去的，从未存在过',
@@ -416,8 +458,8 @@ const POWERS = [
     passive:'攻击无视敌人护甲，并将造成伤害的 12% 转化为生命',
     skill:{ name:'虚无吞噬', duration:10, cooldown:35,
       desc:'持续吞噬周围敌方弹幕；攻击吸血提升至 30%，并削弱敌人防御。' },
-    skill2:{ name:'归零视界', duration:10, cooldown:3,
-      desc:'清空全场敌方弹幕；10 秒内自身全部伤害 +50%、吸血提升至 30%，全场敌人虚弱（受到伤害 +20%）。' },
+    skill2:{ name:'归零脉冲', duration:10, cooldown:2.9,
+      desc:'展开跟随自身的归零场，持续抹除敌方弹幕并造成真实伤害；再按一次二技能提前引爆，造成范围真伤与击退。' },
     brief:'远程 · 穿透 · 吸血' },
   { id:'war', name:'战意之权', color:'#ff7548', color2:'#8e2d1d', metal:'#ffe0b0',
     weapon:'陨星战锤', tagline:'以重锤击碎敌阵，以战意震荡大地', hp:175, moveSpeedMul:.92,
@@ -425,7 +467,7 @@ const POWERS = [
     passive:'近战命中累积战意；连续命中4次后，下一次命中释放圆形震荡波，造成额外伤害、击退与减速',
     skill:{ name:'崩山重击', duration:.65, cooldown:22,
       desc:'高举陨星战锤砸向地面，对周围大范围敌人造成重击伤害，强力击退并减速。' },
-    skill2:{ name:'战意狂潮', duration:10, cooldown:3,
+    skill2:{ name:'战意狂潮', duration:10, cooldown:2.3,
       desc:'连放三道递增震荡波；10 秒内伤害 +35%、攻速 +25%、移速 +20%，并立即充满战意。' },
     brief:'近战 · 重锤 · 范围震荡' }
 ];
@@ -781,6 +823,52 @@ const Save = {
   save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); }catch(e){} },
   reset(){ this.data={power:null,ult:null,done:[],collapse:20,best:{}}; this.save(); }
 };
+/* ===== 管理员模式：密钥 / 调试 / 测试装备（参考 shishijiushishi 仓库） ===== */
+const DEV_KEY = 'yishidadaniubi';
+const ADMIN_KEY = 'collapse_world_admin_v1';
+const Admin = { on:false, god:false, instakill:false, noCd:false, gale:false };
+function adminLoad(){
+  try{
+    const o=JSON.parse(localStorage.getItem(ADMIN_KEY)||'{}');
+    ['on','god','instakill','noCd','gale'].forEach(k=>{ Admin[k]=o[k]===true; });
+  }catch(e){}
+}
+function adminSave(){ try{ localStorage.setItem(ADMIN_KEY, JSON.stringify(Admin)); }catch(e){} }
+function devModeOn(){ return Admin.on; }
+function syncDevUI(){
+  const on=devModeOn();
+  const st=$('#dev-state'); if(st) st.textContent = on ? '当前：已开启 · 调试功能可用' : '当前：关闭 · 需要密钥开启';
+  const u=$('#btn-dev-unlock'), c=$('#btn-dev-close'), k=$('#dev-key'), panel=$('#admin-panel');
+  if(u) u.classList.toggle('hidden', on);
+  if(c) c.classList.toggle('hidden', !on);
+  if(k){ k.disabled=on; if(on) k.value=''; }
+  if(panel) panel.style.display = on ? '' : 'none';
+  const t=(id,label,key)=>{ const b=$(id); if(b) b.textContent=label+'：'+(Admin[key]?'开':'关'); };
+  t('#dbg-god','无敌','god'); t('#dbg-instakill','一击必杀','instakill'); t('#dbg-nocd','技能无冷却','noCd');
+  const g=$('#dbg-equip-gale'); if(g) g.textContent = Admin.gale ? '卸下疾风拳套' : '一键装备疾风拳套';
+}
+function tryEnableDevMode(v){
+  if(String(v||'').trim().toLowerCase()!==DEV_KEY) return false;
+  Admin.on=true; adminSave(); syncDevUI(); toast('开发者模式已开启');
+  return true;
+}
+function disableDevMode(){ Admin.on=false; adminSave(); syncDevUI(); toast('开发者模式已关闭'); }
+function updateDebugPanel(){
+  const el=$('#dbg-grid'); if(!el) return;
+  const p=G.player, s=p&&p.s2;
+  el.innerHTML = [
+    '模式 '+(devModeOn()?'开启':'关闭')+' · 无敌 '+(Admin.god?'开':'关')+' · 一击必杀 '+(Admin.instakill?'开':'关')+' · 无冷却 '+(Admin.noCd?'开':'关')+' · 疾风拳套 '+(Admin.gale?'已装备':'未装备'),
+    '生命 '+(p?Math.ceil(p.hp)+' / '+p.hpMax:'—')+' · 大招 '+(p?Math.floor(p.ult)+'%':'—')+' · 崩解度 '+Math.floor(G.collapse)+'%',
+    '关卡 '+(G.levelId||'—')+' · 地图 '+(G.map?G.map.name:'—')+' · 敌人 '+G.enemies.filter(e=>!e.dead).length+' · 已修复 '+Save.data.done.length+' / '+LEVELS.length,
+    '二技能 '+(s?'CD '+s.cd.toFixed(1)+'s · '+s.phase:'—')+' · 一技能 '+(p?Math.ceil(p.skillCd)+'s':'—')
+  ].join('<br>');
+}
+function adminUnlockAll(){
+  Save.data.done = LEVELS.map(L=>L.id);
+  try{ localStorage.setItem(SAVE_MAX_KEY, String(LEVELS.length)); }catch(e){}
+  Save.save(); buildMap(); toast('全部关卡已解锁');
+}
+
 const G = {
   screen:'title',
   power:null, ult:null,
@@ -2024,7 +2112,7 @@ function makePlayer(pwId){
   return { x:G.arena.w/2, y:G.arena.h/2+60, vx:0, vy:0, r:6,
     hp:baseHp, hpMax:baseHp, face:1, aimX:1, aimY:0, swing:0,
     atkCd:0, dashCd:0, dashT:0, dashX:1, dashY:0, inv:0, hurtFlash:0,
-    skillCd:0, skillT:0, skill2Cd:0, skill2T:0, skill2Tick:0, ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
+    skillCd:0, skillT:0, skill2Cd:0, skill2T:0, skill2Tick:0, s2:freshS2(), ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
     pw:P, atkCount:0, roll:0, aimAng:0, atkAng:0, tgt:null, lockFx:0, turnBoost:0,
     trail:[], trailT:0, dustT:0, hitShake:0, arcGhost:0 };
 }
@@ -2199,6 +2287,7 @@ function damageEnemy(e, dmg, opt){
     (karmaSkillDamageBonusActive() ? 2 : 1);
   if(!opt.silent && G.player && G.player.pw.id==='void' && G.player.skill2T>0) d *= 1.5;
   if(e.weak>0) d *= 1.2;
+  if(Admin.on && Admin.instakill && !opt.silent) d = e.hp+1;
   for(const z of G.zones) if(z.kind==='order' && dist2(e.x,e.y,z.x,z.y) < z.r*z.r) d *= 1.3;
   if(T.armor && !opt.trueDmg) d *= (1 - T.armor);
   e.hp -= d; e.hurt = .12;
@@ -2291,6 +2380,7 @@ function spaceDodgeChance(){
   return Math.min(1, .75 + livingMobs*.015 + (bossAlive ? .15 : 0) + spaceCollapseBonus);
 }
 function hurtPlayer(dmg){
+  if(Admin.on && Admin.god) return false;
   const p=G.player;
   if(p.inv>0 || p.dashT>0) return;
   if(p.pw.id==='space' && Math.random()<spaceDodgeChance()){
@@ -2356,11 +2446,15 @@ function doAttack(p){
   p.atkAng = ang;
   p.turnBoost = 0.34;
   p.aimX = Math.cos(ang); p.aimY = Math.sin(ang);
-  p.atkCd = A.cd * HERO_BALANCE.attackCooldownMul
+  const galeGap = G.time - (p.lastAtkT==null ? -99 : p.lastAtkT);
+  p.lastAtkT = G.time;
+  const galeMul = (Admin.on && Admin.gale) ? clamp(galeGap/.30, .18, 1) : 1;
+  p.atkCd = (Admin.on && Admin.gale) ? .04 :
+    (A.cd * HERO_BALANCE.attackCooldownMul
     * (p.skillT>0 && P.id==='karma' ? .82 : 1)
-    * (p.skill2T>0 && P.id==='war' ? .75 : 1);
+    * (p.skill2T>0 && P.id==='war' ? .75 : 1));
   p.swing = 1; p.atkCount++;
-  let dmg = A.dmg * HERO_BALANCE.damageMul;
+  let dmg = A.dmg * HERO_BALANCE.damageMul * galeMul;
   if(P.id==='karma') dmg *= (1 + p.karma*0.02) * (p.skillT>0 ? 1.6 : 1);
   if(P.id==='space') dmg *= 1.5;
   if(p.skillT>0 && P.id==='order') dmg *= 1.25;
@@ -2530,7 +2624,138 @@ function trySkill(p){
     for(let i=0;i<10;i++) G.parts.push(mkPart(p.x,p.y-8,P.metal,{sp:rand(90,190),life:rand(.22,.48),size:2,g:24}));
   }
 }
+/* ===== 二技能：参考 shishijiushishi 仓库的二段式实现 =====
+   秩序之权 / 战意之权不复制，沿用本地 legacySkill2。 */
+function freshS2(){ return {cd:0, phase:'idle', t:0, dur:0, data:null}; }
+function s2Clear(p){ const s=p.s2; s.phase='idle'; s.t=0; s.dur=0; s.data=null; }
+function s2Target(p,maxD){
+  if(p.tgt && !p.tgt.dead && dist2(p.tgt.x,p.tgt.y,p.x,p.y)<maxD*maxD) return p.tgt;
+  let best=null, bd=maxD*maxD;
+  for(const e of G.enemies){ if(e.dead) continue; const q=dist2(e.x,e.y,p.x,p.y); if(q<bd){ bd=q; best=e; } }
+  return best;
+}
+function s2Area(x,y,r,dmg,color,kb,trueDmg){
+  G.slashes.push({x,y,a:0,arc:TAU,r,t:0,dur:.40,color:color||'#fff'});
+  burst(x,y,14,color||'#fff',150);
+  for(const e of G.enemies){
+    if(e.dead || dist2(e.x,e.y-8,x,y)>=r*r) continue;
+    damageEnemy(e,dmg,trueDmg?{big:true,trueDmg:true}:{big:true});
+    if(!e.dead){
+      const dx=e.x-x, dy=(e.y-8)-y, dd=Math.hypot(dx,dy)||1;
+      e.vx+=dx/dd*(kb||150); e.vy+=dy/dd*(kb||150);
+    }
+  }
+}
+const S2 = {
+  karma:{ name:'业锁·因果链', cd:2.6, dur:3.1, color:'#c9a6ff',
+    first(p,s){ const e=s2Target(p,250); s.data={target:e?e.id:null,acc:0};
+      if(e){ e.slow=Math.max(e.slow,3.1); e.weak=Math.max(e.weak,3.1); }
+      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:56,t:0,dur:.30,color:'#c9a6ff'}); },
+    tick(p,s,dt){ const d=s.data; if(!d||d.target==null) return;
+      const e=G.enemies.find(o=>o.id===d.target&&!o.dead); if(!e) return;
+      e.vx=0; e.vy=0; e.slow=Math.max(e.slow,.5);
+      d.acc+=dt; if(d.acc>=.4){ d.acc=0; damageEnemy(e,6,{silent:true}); p.hp=Math.min(p.hpMax,p.hp+2.5); } },
+    second(p,s){ const d=s.data, e=d&&d.target!=null?G.enemies.find(o=>o.id===d.target&&!o.dead):null;
+      if(e){ e.x=p.x+p.aimX*46; e.y=p.y+p.aimY*46; damageEnemy(e,34,{big:true});
+        e.vx+=p.aimX*220; e.vy+=p.aimY*220; burst(e.x,e.y-8,16,'#c9a6ff',180); }
+      s2Clear(p); },
+    expire(p,s){ s2Clear(p); }
+  },
+  time:{ name:'刻印回溯', cd:2.8, dur:4.5, color:'#ffcc44',
+    first(p,s){ s.data={x:p.x,y:p.y-8,acc:0}; p.inv=Math.max(p.inv,.2);
+      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:52,t:0,dur:.35,color:'#ffcc44'}); },
+    tick(p,s,dt){ const d=s.data; if(!d) return; d.acc+=dt;
+      if(d.acc>=.5){ d.acc=0; G.parts.push(mkPart(d.x,d.y,'#ffcc44',{sp:20,life:.3,size:2,g:-10})); } },
+    second(p,s){ s2TimeReturn(p,s); }, expire(p,s){ s2TimeReturn(p,s); }
+  },
+  life:{ name:'荆棘缚环', cd:2.4, dur:2.4, color:'#58e08a',
+    first(p,s){ const e=s2Target(p,240); s.data={target:e?e.id:null,acc:0,self:!e};
+      if(e){ e.slow=Math.max(e.slow,2.4); }
+      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:60,t:0,dur:.32,color:'#58e08a'}); },
+    tick(p,s,dt){ const d=s.data; if(!d) return; d.acc+=dt;
+      if(d.acc<.4) return; d.acc=0;
+      if(d.self){ p.hp=Math.min(p.hpMax,p.hp+3); s2Area(p.x,p.y-8,56,8,'#58e08a',0,false); return; }
+      const e=G.enemies.find(o=>o.id===d.target&&!o.dead);
+      if(e){ damageEnemy(e,8,{silent:true}); p.hp=Math.min(p.hpMax,p.hp+3); e.slow=Math.max(e.slow,.6); } },
+    second(p,s){ s2LifeBurst(p,s,true); }, expire(p,s){ s2LifeBurst(p,s,false); }
+  },
+  fate:{ name:'双面骰', cd:3.0, dur:2.2, color:'#ff6fa8',
+    first(p,s){ const e=s2Target(p,260); const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
+      s.data={face:randi(1,6),x:p.x+Math.cos(a)*40,y:p.y-8+Math.sin(a)*40,
+        tx:e?e.x:p.x+Math.cos(a)*160,ty:e?e.y-8:p.y-8+Math.sin(a)*160,t:0};
+      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:44,t:0,dur:.3,color:'#ff6fa8'}); },
+    tick(p,s,dt){ const d=s.data; if(!d) return; d.t+=dt;
+      const k=clamp(d.t/.32,0,1); d.x=lerp(d.x,d.tx,k*.35); d.y=lerp(d.y,d.ty,k*.35);
+      if(Math.random()<.4) G.parts.push(mkPart(d.x,d.y,'#ffd0e4',{sp:30,life:.25,size:2,g:0})); },
+    second(p,s){ s2FateOpen(p,s); }, expire(p,s){ s2FateOpen(p,s); }
+  },
+  space:{ name:'折跃标记', cd:2.7, dur:4, color:'#35d6ff',
+    first(p,s){ const a=p.aimAng;
+      s.data={x:clamp(p.x+Math.cos(a)*180,20,G.arena.w-20),
+              y:clamp(p.y-8+Math.sin(a)*180,20,G.arena.h-20)};
+      G.slashes.push({x:s.data.x,y:s.data.y,a:0,arc:TAU,r:52,t:0,dur:.4,color:'#35d6ff'}); },
+    tick(p,s,dt){ const d=s.data; if(!d) return;
+      if(Math.random()<.3) G.parts.push(mkPart(d.x+rand(-14,14),d.y+rand(-14,14),'#c8f6ff',{sp:16,life:.3,size:1,g:0})); },
+    second(p,s){ s2SpaceJump(p,s); }, expire(p,s){ s2SpaceJump(p,s); }
+  },
+  void:{ name:'归零脉冲', cd:2.9, dur:3, color:'#b07bff',
+    first(p,s){ s.data={r:90,acc:0}; G.zones.push({kind:'void',x:p.x,y:p.y,r:90,t:0,dur:3,color:'#b07bff',follow:true}); },
+    tick(p,s,dt){ const d=s.data; if(!d) return;
+      G.bullets=G.bullets.filter(b=>b.owner!=='e'||dist2(b.x,b.y,p.x,p.y-8)>d.r*d.r);
+      d.acc+=dt; if(d.acc>=.4){ d.acc=0;
+        for(const e of G.enemies){ if(e.dead||dist2(e.x,e.y-8,p.x,p.y-8)>=d.r*d.r) continue;
+          damageEnemy(e,9,{silent:true,trueDmg:true}); e.slow=Math.max(e.slow,.5); } } },
+    second(p,s){ s2VoidBurst(p,s,true); }, expire(p,s){ s2VoidBurst(p,s,false); }
+  }
+};
+function s2TimeReturn(p,s){ const d=s.data; if(!d) return;
+  const ox=p.x, oy=p.y-8;
+  p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y+8,20,G.arena.h-14); resolveBlocks(p);
+  healPlayer(p.hpMax*.2); p.inv=Math.max(p.inv,.5);
+  s2Area(ox,oy,80,42,'#ffcc44',170,false); s2Area(p.x,p.y-8,80,42,'#ffe9a8',170,false);
+  flash('#ffcc44',.3); s2Clear(p); }
+function s2LifeBurst(p,s,manual){ const d=s.data; if(!d) return;
+  const e=d.target!=null?G.enemies.find(o=>o.id===d.target&&!o.dead):null;
+  const x=e?e.x:p.x, y=e?e.y-8:p.y-8;
+  s2Area(x,y,manual?96:70,manual?46:24,'#58e08a',200,false);
+  healPlayer(manual?18:8); flash('#58e08a',.25); s2Clear(p); }
+function s2FateOpen(p,s){ const d=s.data; if(!d) return;
+  if(d.face>=4){ s2Area(d.tx,d.ty,160,140,'#ff6fa8',260,false); G.shake=Math.max(G.shake,14); }
+  else { for(let i=0;i<6;i++){ const x=rand(30,G.arena.w-30), y=rand(30,G.arena.h-30);
+    s2Area(x,y,64,60,'#ff6fa8',120,false); } }
+  toast('骰面 '+d.face); flash('#ff6fa8',.35); s2Clear(p); }
+function s2SpaceJump(p,s){ const d=s.data; if(!d) return;
+  const ox=p.x, oy=p.y-8;
+  p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y+8,20,G.arena.h-14); resolveBlocks(p);
+  p.inv=Math.max(p.inv,.6);
+  s2Area(ox,oy,110,64,'#35d6ff',200,true); s2Area(p.x,p.y-8,110,64,'#c8f6ff',200,true);
+  flash('#35d6ff',.3); s2Clear(p); }
+function s2VoidBurst(p,s,manual){ const d=s.data; if(!d) return;
+  s2Area(p.x,p.y-8,manual?110:84,manual?64:32,'#b07bff',210,true);
+  flash('#b07bff',.28); s2Clear(p); }
+function updateSkill2(dt){
+  const p=G.player; if(!p||!p.s2) return;
+  const s=p.s2;
+  if(s.cd>0) s.cd=Math.max(0,s.cd-dt);
+  if(s.phase!=='active') return;
+  const def=S2[p.pw.id]; if(!def){ s2Clear(p); return; }
+  s.t+=dt;
+  if(def.tick) def.tick(p,s,dt);
+  if(s.phase!=='active') return;
+  if(s.t>=s.dur){ if(def.expire) def.expire(p,s); s2Clear(p); }
+}
 function trySkill2(p){
+  const def=S2[p.pw.id];
+  if(!def) return legacySkill2(p);
+  const s=p.s2;
+  if(s.phase==='active'){ if(def.second) def.second(p,s); return; }
+  if(s.cd>0) return;
+  s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null;
+  def.first(p,s);
+  toast(def.name);
+  flash(p.pw.color,.28);
+}
+function legacySkill2(p){
   if(p.skill2Cd>0) return;
   const P=p.pw, S=P.skill2;
   if(!S) return;
@@ -2718,6 +2943,8 @@ function updateBattle(dt){
   p.atkCd -= dt; p.dashCd -= dt;
   if(combatActive) p.skillCd = Math.max(0, p.skillCd-dt);
   if(combatActive) p.skill2Cd = Math.max(0, p.skill2Cd-dt);
+  updateSkill2(dt);
+  if(Admin.on && Admin.noCd){ p.skillCd=0; p.skill2Cd=0; p.s2.cd=0; p.ult=100; p.dashCd=0; }
   if(p.skill2T>0 && combatActive){
     p.skill2T = Math.max(0, p.skill2T-dt);
     if(p.pw.id==='life'){
@@ -3228,9 +3455,10 @@ function updateHud(){
     sk.classList.add('hidden');
     skillBtn.classList.add('ready');
   }
-  if(p.skill2Cd>0){
+  const s2cd = (p.pw.id==='order'||p.pw.id==='war') ? p.skill2Cd : (p.s2?p.s2.cd:0);
+  if(s2cd>0){
     s2Btn.classList.remove('ready'); s2.classList.remove('hidden');
-    s2.textContent = p.skill2Cd < 1 ? `${Math.max(0,p.skill2Cd).toFixed(2)}` : `${Math.ceil(p.skill2Cd)}`;
+    s2.textContent = s2cd < 1 ? `${Math.max(0,s2cd).toFixed(2)}` : `${Math.ceil(s2cd)}`;
   } else { s2.classList.add('hidden'); s2Btn.classList.add('ready'); }
   if(p.ult<100){ ul.classList.remove('hidden'); ul.textContent = Math.floor(p.ult)+'%'; $('#b-ult').classList.remove('ready'); }
   else { ul.classList.add('hidden'); $('#b-ult').classList.add('ready'); }
@@ -3247,7 +3475,7 @@ function showScreen(name){
   $('#scr-result').classList.add('hidden');
   $('#scr-pause').classList.add('hidden');
   $('#hud').classList.toggle('hidden', name!=='battle');
-  const map = {title:'#scr-title', power:'#scr-power', ult:'#scr-ult', map:'#scr-map'};
+  const map = {title:'#scr-title', power:'#scr-power', ult:'#scr-ult', map:'#scr-map', admin:'#scr-admin'};
   if(map[name]) $(map[name]).classList.remove('hidden');
 }
 function togglePause(){
@@ -3551,6 +3779,34 @@ function setupUI(){
   $('#btn-resume').addEventListener('click', ()=>togglePause());
   $('#btn-quit').addEventListener('click', ()=>{ G.paused=false; G.running=false; buildMap(); showScreen('map'); });
   addEventListener('keydown', e=>{ if(e.key==='Shift') Input.dashReq=true; });
+  /* 管理员模式 */
+  $('#btn-admin').addEventListener('click', ()=>{ syncDevUI(); updateDebugPanel(); showScreen('admin'); });
+  $('#btn-admin-back').addEventListener('click', ()=>showScreen('title'));
+  const devInput=$('#dev-key');
+  if(devInput) devInput.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); if(!devModeOn() && !tryEnableDevMode(devInput.value)) toast('密钥不正确'); }
+  });
+  $('#btn-dev-unlock').addEventListener('click', ()=>{
+    if(!tryEnableDevMode(devInput?devInput.value:'')) toast('密钥不正确');
+  });
+  $('#btn-dev-close').addEventListener('click', disableDevMode);
+  $('#dbg-heal').addEventListener('click', ()=>{ if(G.player) G.player.hp=G.player.hpMax; updateDebugPanel(); toast('生命已回满'); });
+  $('#dbg-ult').addEventListener('click', ()=>{ if(G.player) G.player.ult=100; updateDebugPanel(); toast('大招已充满'); });
+  $('#dbg-collapse').addEventListener('click', ()=>{ G.collapse=0; Save.data.collapse=0; Save.save(); updateDebugPanel(); toast('崩解度已归零'); });
+  $('#dbg-unlock').addEventListener('click', ()=>{ adminUnlockAll(); updateDebugPanel(); });
+  $('#dbg-reset').addEventListener('click', ()=>{
+    if(confirm('清空存档？权能、进度与成绩会重置。')){
+      Save.reset(); G.power=null; G.ult=null; G.collapse=20; G.running=false;
+      updateDebugPanel(); showScreen('title');
+    }
+  });
+  $('#dbg-equip-gale').addEventListener('click', ()=>{
+    Admin.gale=!Admin.gale; adminSave(); syncDevUI(); updateDebugPanel();
+    toast(Admin.gale?'测试 · 已装备疾风拳套':'测试 · 已卸下疾风拳套');
+  });
+  $('#dbg-god').addEventListener('click', ()=>{ Admin.god=!Admin.god; adminSave(); syncDevUI(); updateDebugPanel(); });
+  $('#dbg-instakill').addEventListener('click', ()=>{ Admin.instakill=!Admin.instakill; adminSave(); syncDevUI(); updateDebugPanel(); });
+  $('#dbg-nocd').addEventListener('click', ()=>{ Admin.noCd=!Admin.noCd; adminSave(); syncDevUI(); updateDebugPanel(); });
 }
 function loop(ts){
   requestAnimationFrame(loop);
@@ -3562,6 +3818,7 @@ function loop(ts){
     updateBattle(dt);
     updateHud();
   }
+  if(G.screen==='admin' && G.time-(G.adminUiT||0)>.2){ G.adminUiT=G.time; updateDebugPanel(); }
   render();
 }
 function boot(){
@@ -3570,6 +3827,7 @@ function boot(){
   const d=Save.data;
   if(d.power){ G.power=d.power; G.ult=d.ult||ULTS[0].id; G.collapse=d.collapse||20; syncAccent(); }
   $('#btn-continue').style.display = '';
+  adminLoad(); syncDevUI(); updateDebugPanel();
   showScreen('title');
   requestAnimationFrame(loop);
 }
