@@ -3193,7 +3193,7 @@ function buyShopItem(id){
 function learnScroll(id){
   const def=SCROLL_MAP[id]; if(!def) return;
   Save.data.scrolls=[id]; Save.save();
-  toast('已习得 '+def.name+' · 招式同时只能持有 1 种');
+  toast('已习得 '+def.name+' · 普攻自动追加，无需按键（招式同时只能持有 1 种）');
   buildShop();
 }
 function learnSkill(id){
@@ -3221,7 +3221,8 @@ function buildShop(){
       const afford=(Save.data[x.cur==='gem'?'gems':'coins']||0)>=x.cost;
       const b=document.createElement('button');
       b.className='pxbtn'+(got?' primary':'');
-      b.textContent=x.name+' · '+x.cost+(x.cur==='gem'?' ◆':' G')
+      const unit=x.cur==='gem'?' ◆':' G';
+      b.textContent = got ? '已习得 · '+x.name : (isScroll?'习得 ':'学习 ')+x.name+' · '+x.cost+unit
         +(sold?' · 售罄':(!afford?' · 货币不足':''));
       b.title=x.desc||'';
       if(got||sold||!afford) b.disabled=true;
@@ -3236,7 +3237,7 @@ function buildShop(){
     const cur=(Save.data.scrolls||[])[0]||null;
     const scName=(cur&&SCROLL_MAP[cur])?SCROLL_MAP[cur].name:'未习得';
     const kn=(Save.data.skills||[]).map(id=>{ const x=SKILL_MAP[id]; return x?x.name:id; });
-    own.textContent='招式：'+scName+'　·　技能：'+(kn.length?kn.join(' / '):'未习得')
+    own.textContent='已习得招式：'+scName+'（普攻自动追加，无需按键）　·　技能：'+(kn.length?kn.join(' / '):'未习得')
       +'（'+(Save.data.skills||[]).length+'/'+SKILL_DEFS.length+'）';
   }
 }
