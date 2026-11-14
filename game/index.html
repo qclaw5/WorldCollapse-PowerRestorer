@@ -158,6 +158,14 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 .dev-keyrow input:focus{border-color:#ffd76b;outline:none}
 .admin-btns{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
 .admin-btns .pxbtn{padding:.5em .8em;font-size:clamp(10px,2.3vmin,12px)}
+#card-banner{position:absolute;left:50%;top:14%;transform:translate(-50%,-8px);pointer-events:none;
+  display:none;text-align:center;padding:8px 16px;border:2px solid #ffd76b;background:rgba(12,10,24,.9);
+  box-shadow:0 0 24px rgba(255,215,107,.35);z-index:5}
+#card-banner.show{display:block;animation:cardIn 2.1s ease-out forwards}
+#card-banner b{display:block;color:#ffd76b;font-size:clamp(13px,3.4vmin,19px);letter-spacing:.14em}
+#card-banner small{display:block;color:var(--dim);font-size:clamp(9px,2.3vmin,12px);margin-top:4px}
+@keyframes cardIn{0%{opacity:0;transform:translate(-50%,-14px)}12%{opacity:1;transform:translate(-50%,0)}
+  80%{opacity:1}100%{opacity:0;transform:translate(-50%,-8px)}}
 .pbtn .cd{position:absolute;inset:0;border-radius:50%;background:rgba(4,4,10,.78);
   display:grid;place-items:center;text-align:center;white-space:pre-line;padding:3px;
   font-size:clamp(9px,2.4vmin,12px);line-height:1.25;letter-spacing:0;color:#fff}
@@ -222,7 +230,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <div style="margin-top:1.6em;color:#5d5878;font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;line-height:2">
             武器与弹幕会自动锁定并转向最近的敌人（转向带平滑过渡）<br>
             时间之权的「时间暂停」带有全屏倒计时演出<br>
-            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · Q 权能技 · R 权能技 · E 大招<br>
+            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · Q 权能技 · R 权能技 · E 大招 · F 格挡（习得后）<br>
             触屏：左半屏拖动移动 · 右侧按钮操作
           </div>
         </div>
@@ -259,6 +267,12 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <button class="pxbtn" id="dbg-instakill">一击必杀：关</button>
           <button class="pxbtn" id="dbg-nocd">技能无冷却：关</button>
         </div>
+        <div class="detail-title" style="margin-top:10px">卷 轴</div>
+        <div class="admin-btns">
+          <button class="pxbtn primary" id="dbg-scroll-all">记录全部招式</button>
+          <button class="pxbtn primary" id="dbg-skill-all">习得 4 个技能</button>
+        </div>
+        <div class="skill-desc" style="margin-top:6px">招式卷轴记录后每次普攻随机触发（间隔 ≥0.22s）；技能卷轴含格挡 F / 弹反 / 冲刺斩击 / 突刺，写入存档。</div>
         <div class="skill-desc" style="margin-top:6px">疾风拳套（测试装备）：攻速不再受武器频率限制；两次攻击间隔越短单次伤害越低（间隔 ≥0.30s 满伤，瞬连最低 18%）。</div>
         <div class="detail-title" style="margin-top:10px">实 时 状 态</div>
         <div id="dbg-grid" class="skill-desc">—</div>
@@ -341,6 +355,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       </div>
       <div id="stick"><b></b></div>
       <div class="toast" id="toast"></div>
+      <div id="card-banner"><b></b><small></small></div>
     </div>
     <div class="modal hidden" id="scr-result">
       <div class="box">
@@ -425,14 +440,14 @@ const POWERS = [
       desc:'藤环束缚目标并持续吸取生命；再按一次二技能提前引爆，对周围造成伤害与击退并治疗自身；身边没敌人时改为生息脉冲。' },
     brief:'远程 · 续航 · 反伤' },
   { id:'fate', name:'命运之权', color:'#ff6fa8', color2:'#8c2350', metal:'#ffd0e4',
-    weapon:'命运骰', tagline:'骰子落下之前，胜负无人知晓',
-    atk:{mode:'ranged', dmg:15, cd:.30, speed:340, r:4, life:1.1},
-    passive:'攻击有 25% 概率掷出命运：暴击 / 连击 / 减速 / 爆裂',
+    weapon:'命运骰盅', tagline:'摇盅、开盖，四骰定生死',
+    atk:{mode:'ranged', dmg:25, cd:.86, speed:430, r:3, life:1.15, spread:4, spreadAng:.30},
+    passive:'起手伤害偏低；击杀累积命运点数提升倍率；首杀新怪种、或重复击杀满 5 只抽一张塔罗牌，最多 3 张同时生效',
     skill:{ name:'命运轮盘', duration:15, cooldown:35,
-      desc:'轮盘常转：每次攻击必定触发随机命运效果，并大幅提升触发威力。' },
+      desc:'轮盘常转：摇盅加快，每次掷骰必定触发随机命运效果，并大幅提升触发威力。' },
     skill2:{ name:'双面骰', duration:8, cooldown:3.0,
       desc:'掷出巨型骰子，飞行途中再按一次二技能可提前开骰；点数 ≥4 触发大范围裁决爆炸，≤3 改为全场轰击。' },
-    brief:'远程 · 随机 · 高风险高回报' },
+    brief:'远程 · 成长倍率 · 塔罗抽牌' },
   { id:'order', name:'秩序之权', color:'#cfe4ff', color2:'#4a6a9c', metal:'#ffe9a8',
     weapon:'律令之剑', tagline:'万物各行其位，各守其序',
     atk:{mode:'melee', dmg:23, cd:.34, range:48, arc:1.45, kb:110,
@@ -821,7 +836,7 @@ const Save = {
   data:{ power:null, ult:null, done:[], collapse:20, best:{} },
   load(){ try{ const s=localStorage.getItem(SAVE_KEY); if(s) Object.assign(this.data, JSON.parse(s)); }catch(e){} return this.data; },
   save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); }catch(e){} },
-  reset(){ this.data={power:null,ult:null,done:[],collapse:20,best:{}}; this.save(); }
+  reset(){ this.data={power:null,ult:null,done:[],collapse:20,best:{},scrolls:[],skills:[]}; this.save(); }
 };
 /* ===== 管理员模式：密钥 / 调试 / 测试装备（参考 shishijiushishi 仓库） ===== */
 const DEV_KEY = 'yishidadaniubi';
@@ -860,13 +875,146 @@ function updateDebugPanel(){
     '模式 '+(devModeOn()?'开启':'关闭')+' · 无敌 '+(Admin.god?'开':'关')+' · 一击必杀 '+(Admin.instakill?'开':'关')+' · 无冷却 '+(Admin.noCd?'开':'关')+' · 疾风拳套 '+(Admin.gale?'已装备':'未装备'),
     '生命 '+(p?Math.ceil(p.hp)+' / '+p.hpMax:'—')+' · 大招 '+(p?Math.floor(p.ult)+'%':'—')+' · 崩解度 '+Math.floor(G.collapse)+'%',
     '关卡 '+(G.levelId||'—')+' · 地图 '+(G.map?G.map.name:'—')+' · 敌人 '+G.enemies.filter(e=>!e.dead).length+' · 已修复 '+Save.data.done.length+' / '+LEVELS.length,
-    '二技能 '+(s?'CD '+s.cd.toFixed(1)+'s · '+s.phase:'—')+' · 一技能 '+(p?Math.ceil(p.skillCd)+'s':'—')
+    '二技能 '+(s?'CD '+s.cd.toFixed(1)+'s · '+s.phase:'—')+' · 一技能 '+(p?Math.ceil(p.skillCd)+'s':'—'),
+    '命运点数 '+Math.round(G.fp)+' · 塔罗 '+G.tarot.length+' · 招式 '+(Save.data.scrolls||[]).length+' / 6 · 技能 '+(Save.data.skills||[]).length+' / 4'
   ].join('<br>');
 }
 function adminUnlockAll(){
   Save.data.done = LEVELS.map(L=>L.id);
   try{ localStorage.setItem(SAVE_MAX_KEY, String(LEVELS.length)); }catch(e){}
   Save.save(); buildMap(); toast('全部关卡已解锁');
+}
+
+/* ===== 命运之权 · 塔罗 / 命运点数（参考 shishijiushishi 仓库） ===== */
+const TAROT = [
+  {id:'fool',num:0,name:'愚者',desc:'移速 +30% · 冲刺冷却 -40%',dur:14,color:'#ffe9a8'},
+  {id:'magician',num:1,name:'魔术师',desc:'攻击间隔 ×0.68',dur:14,color:'#ff9de0'},
+  {id:'priestess',num:2,name:'女祭司',desc:'技能冷却清空 · 技能伤害 +25%',dur:14,color:'#cfe4ff'},
+  {id:'empress',num:3,name:'皇后',desc:'每次击杀回复 6 点生命',dur:14,color:'#8cf0a8'},
+  {id:'emperor',num:4,name:'皇帝',desc:'受到的伤害 ×0.5',dur:14,color:'#ffb46b'},
+  {id:'hierophant',num:5,name:'教皇',desc:'击杀获得的命运点数翻倍',dur:14,color:'#ffe9a8'},
+  {id:'lovers',num:6,name:'恋人',desc:'每轮掷骰额外 +2 枚骰子',dur:14,color:'#ff9de0'},
+  {id:'chariot',num:7,name:'战车',desc:'移速 +25% · 冲刺撞击造成 30 伤害',dur:14,color:'#ffb46b'},
+  {id:'strength',num:8,name:'力量',desc:'伤害倍率额外 +0.40',dur:14,color:'#ff8f6b'},
+  {id:'hermit',num:9,name:'隐者',desc:'锁敌范围 +280 · 弹幕制导增强',dur:14,color:'#cfe4ff'},
+  {id:'wheel',num:10,name:'命运之轮',desc:'立即获得 5 点命运点数',dur:8,color:'#ffd76b',instant:true},
+  {id:'justice',num:11,name:'正义',desc:'暴击率 +30% · 暴击伤害 ×1.6',dur:14,color:'#cfe4ff'},
+  {id:'hanged',num:12,name:'倒吊人',desc:'敌方子弹速度 ×0.55',dur:14,color:'#8cf0a8'},
+  {id:'death',num:13,name:'死神',desc:'斩杀生命低于 35% 的敌人',dur:14,color:'#a86bff'},
+  {id:'temperance',num:14,name:'节制',desc:'立即回血 25% · 每秒回复 1.5',dur:14,color:'#8cf0a8'},
+  {id:'devil',num:15,name:'恶魔',desc:'造成伤害的 18% 转化为生命',dur:14,color:'#a86bff'},
+  {id:'tower',num:16,name:'塔',desc:'全场敌人立即受到 80 点伤害',dur:8,color:'#ff6b81',instant:true},
+  {id:'star',num:17,name:'星星',desc:'暴击率 +25% · 暴击伤害 ×2.0',dur:14,color:'#ffe9a8'},
+  {id:'moon',num:18,name:'月亮',desc:'全体敌人移动速度 ×0.5',dur:14,color:'#cfe4ff'},
+  {id:'sun',num:19,name:'太阳',desc:'攻击间隔 ×0.8 · 骰子穿透 +1',dur:14,color:'#ffd76b'},
+  {id:'judgement',num:20,name:'审判',desc:'崩解度 -6% · 全体敌人减速 3 秒',dur:8,color:'#ffe9a8',instant:true},
+  {id:'world',num:21,name:'世界',desc:'时间暂停 3 秒',dur:8,color:'#ffd76b',instant:true}
+];
+const TAROT_MAP=Object.fromEntries(TAROT.map(c=>[c.id,c]));
+const TAROT_MAX=3, REPEAT_NEED=5, FP_MAX=80, FP_BASE=.62, FP_STEP=.028, FP_CAP=2.8;
+const TAROT_BIAS={
+  grunt:null,
+  shooter:['star','magician','hermit','justice','sun','priestess'],
+  brute:['strength','chariot','emperor','tower','devil','death'],
+  glitch:['wheel','fool','hanged','moon','lovers','temperance'],
+  boss:['world','wheel','tower','judgement','star','sun','strength']
+};
+function cardFx(){ return (G.player && G.player.cardFx) || null; }
+function computeCardFx(){
+  const fx={ atkMul:1, spdMul:1, dashMul:1, crit:0, critMul:1, fpMul:1,
+    mulAdd:0, pierce:0, extraDice:0, healKill:0, dmgTaken:1, lifesteal:0,
+    regen:0, enemySlow:1, bulletSlow:1, exec:0, guideAdd:0, lockAdd:0,
+    skillDmg:1, chariotDmg:0 };
+  for(const c of G.tarot){
+    switch(c.id){
+      case 'fool': fx.spdMul*=1.3; fx.dashMul*=.6; break;
+      case 'magician': fx.atkMul*=.68; break;
+      case 'priestess': fx.skillDmg*=1.25; break;
+      case 'empress': fx.healKill+=6; break;
+      case 'emperor': fx.dmgTaken*=.5; break;
+      case 'hierophant': fx.fpMul+=1; break;
+      case 'lovers': fx.extraDice+=2; break;
+      case 'chariot': fx.spdMul*=1.25; fx.chariotDmg+=30; break;
+      case 'strength': fx.mulAdd+=.4; break;
+      case 'hermit': fx.lockAdd+=280; fx.guideAdd+=2; break;
+      case 'justice': fx.crit+=.30; fx.critMul*=1.6; break;
+      case 'hanged': fx.bulletSlow*=.55; break;
+      case 'death': fx.exec=.35; break;
+      case 'temperance': fx.regen+=1.5; break;
+      case 'devil': fx.lifesteal+=.18; break;
+      case 'star': fx.crit+=.25; fx.critMul*=2; break;
+      case 'moon': fx.enemySlow*=.5; break;
+      case 'sun': fx.atkMul*=.8; fx.pierce+=1; break;
+    }
+  }
+  if(G.player) G.player.cardFx=fx;
+  return fx;
+}
+function fateMul(){
+  const p=G.player;
+  if(!p || p.pw.id!=='fate') return 1;
+  return clamp(FP_BASE + G.fp*FP_STEP + ((p.cardFx&&p.cardFx.mulAdd)||0), FP_BASE, FP_CAP);
+}
+function addFatePoints(n){
+  const p=G.player, fx=p&&p.cardFx;
+  const gain=Math.max(0,Math.round(n*((fx&&fx.fpMul)||1)));
+  G.fp=Math.min(FP_MAX,G.fp+gain);
+  if(p) for(let i=0;i<6;i++) G.parts.push(mkPart(p.x+rand(-9,9),p.y-14+rand(-5,5),'#ffd76b',{sp:rand(20,60),life:rand(.3,.6),size:1,g:-26}));
+  return gain;
+}
+function applyTarot(card){
+  const p=G.player, ex=G.tarot.find(c=>c.id===card.id);
+  if(ex) ex.t=0;
+  else { G.tarot.push({id:card.id,t:0,dur:card.dur}); while(G.tarot.length>TAROT_MAX) G.tarot.shift(); }
+  computeCardFx();
+  G.tarotLock=true;
+  if(card.id==='wheel') addFatePoints(5);
+  if(card.id==='tower'){ for(const e of G.enemies) if(!e.dead) damageEnemy(e,80,{big:true}); G.shake=Math.max(G.shake,12); flash('#ff6b81',.3); }
+  if(card.id==='judgement'){ G.collapse=Math.max(0,G.collapse-6); for(const e of G.enemies) e.slow=Math.max(e.slow,3); }
+  if(card.id==='world'){ G.freeze=Math.max(G.freeze,3); G.stopDur=3; G.stopIntro=.7; }
+  if(card.id==='priestess' && p) p.skillCd=0;
+  if(card.id==='temperance' && p) p.hp=Math.min(p.hpMax,p.hp+p.hpMax*.25);
+  G.tarotLock=false;
+  G.cardDraw={id:card.id,t:0,dur:2.1};
+  const el=$('#card-banner');
+  if(el){ el.innerHTML=`<b>${card.num} · ${card.name}</b><small>${card.desc}</small>`;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+  if(p) burst(p.x,p.y-8,14,card.color,90);
+  toast(`${card.num} · ${card.name}`);
+}
+function drawTarot(type){
+  if(G.tarotLock || !G.player || G.player.pw.id!=='fate') return;
+  const bias=TAROT_BIAS[type]; let pool=TAROT;
+  if(bias && Math.random()<(type==='boss'?1:.72)){
+    const f=TAROT.filter(c=>bias.indexOf(c.id)>=0); if(f.length) pool=f;
+  }
+  applyTarot(pool[randi(0,pool.length-1)]);
+}
+function fateOnKill(e,T){
+  if(!G.player || G.player.pw.id!=='fate') return;
+  addFatePoints(T.boss?5:1);
+  const fx=cardFx();
+  if(fx && fx.healKill) healPlayer(fx.healKill);
+  let type=e.type;
+  if(['grunt','shooter','brute','glitch'].indexOf(type)<0) type=T.boss?'boss':'grunt';
+  const first=G.tarotSeen.indexOf(type)<0;
+  let trigger=false;
+  if(first){ G.tarotSeen.push(type); G.repeatKills=0; trigger=true; }
+  else { G.repeatKills++; if(G.repeatKills>=REPEAT_NEED){ G.repeatKills=0; trigger=true; } }
+  if(trigger) drawTarot(type);
+}
+function updateTarot(dt){
+  let changed=false;
+  for(let i=G.tarot.length-1;i>=0;i--){ G.tarot[i].t+=dt; if(G.tarot[i].t>=G.tarot[i].dur){ G.tarot.splice(i,1); changed=true; } }
+  if(changed) computeCardFx();
+  const p=G.player, fx=p&&p.cardFx;
+  if(p && fx && fx.regen>0) p.hp=Math.min(p.hpMax,p.hp+fx.regen*dt);
+  if(G.cardDraw){ G.cardDraw.t+=dt; if(G.cardDraw.t>=G.cardDraw.dur) G.cardDraw=null; }
+}
+function fateHudText(){
+  if(!G.player || G.player.pw.id!=='fate') return '';
+  const names=G.tarot.map(c=>TAROT_MAP[c.id]?TAROT_MAP[c.id].name:c.id).join(' / ');
+  return `命运点数 ${Math.round(G.fp)}/${FP_MAX} · 倍率 ×${fateMul().toFixed(2)}`+(names?` · ${names}`:'');
 }
 
 const G = {
@@ -890,9 +1038,12 @@ const G = {
   orderEclipseT:0, orderEclipseBurnT:0,
   orderNextAnnihilation:null,
   orderNextGuaranteed:false,
-  ultReadyFx:0
+  ultReadyFx:0,
+  fp:0, tarot:[], cardDraw:null, tarotLock:false, tarotSeen:[], repeatKills:0
 };
 Save.load();
+if(!Array.isArray(Save.data.scrolls)) Save.data.scrolls=[];
+if(!Array.isArray(Save.data.skills)) Save.data.skills=[];
 const SAVE_MAX_KEY = 'collapse_world_max_level_v1';
 function maxLevel(){
   try{ return Math.max(0, Math.min(LEVELS.length, parseInt(localStorage.getItem(SAVE_MAX_KEY)||'0',10)||0)); }
@@ -944,7 +1095,7 @@ const W2S = (wx,wy) => ({ x:(wx-G.cam.x)*G.scale, y:(wy-G.cam.y)*G.scale });
 const Input = {
   keys:{}, mx:0, my:0, mdown:false, hasMouse:false,
   stick:{on:false, id:null, ox:0, oy:0, x:0, y:0, dx:0, dy:0},
-  atk:false, dashReq:false, skillReq:false, skill2Req:false, ultReq:false,
+  atk:false, dashReq:false, skillReq:false, skill2Req:false, ultReq:false, guardReq:false,
   move:{x:0, y:0}, aim:{x:1, y:0}
 };
 const MOVE_KEY_CODES = {
@@ -971,6 +1122,7 @@ function setupInput(){
     if(e.key==='q'||e.key==='Q') Input.skillReq = true;
     if(e.key==='r'||e.key==='R'||e.key==='2') Input.skill2Req = true;
     if(e.key==='e'||e.key==='E') Input.ultReq = true;
+    if(e.key==='f'||e.key==='F') Input.guardReq = true;
     if(e.key==='Escape') togglePause();
   });
   // Capture keyup before UI controls can consume the event.
@@ -1012,7 +1164,7 @@ function resetStick(){
 function clearInput(){
   Input.keys = {};
   Input.atk = false;
-  Input.dashReq = Input.skillReq = Input.skill2Req = Input.ultReq = false;
+  Input.dashReq = Input.skillReq = Input.skill2Req = Input.ultReq = Input.guardReq = false;
   resetStick();
   Input.move.x = Input.move.y = 0;
 }
@@ -2112,7 +2264,8 @@ function makePlayer(pwId){
   return { x:G.arena.w/2, y:G.arena.h/2+60, vx:0, vy:0, r:6,
     hp:baseHp, hpMax:baseHp, face:1, aimX:1, aimY:0, swing:0,
     atkCd:0, dashCd:0, dashT:0, dashX:1, dashY:0, inv:0, hurtFlash:0,
-    skillCd:0, skillT:0, skill2Cd:0, skill2T:0, skill2Tick:0, s2:freshS2(), ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
+    skillCd:0, skillT:0, skill2Cd:0, skill2T:0, skill2Tick:0, s2:freshS2(),
+    shield:0, guard:freshGuard(), cardFx:null, lastScrollT:-99, ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
     pw:P, atkCount:0, roll:0, aimAng:0, atkAng:0, tgt:null, lockFx:0, turnBoost:0,
     trail:[], trailT:0, dustT:0, hitShake:0, arcGhost:0 };
 }
@@ -2130,6 +2283,9 @@ function startLevel(id){
     G.orderNextGuaranteed=false;
   }
   G.freeze=0; G.shake=0; G.flash=0;
+  G.fp=0; G.tarot.length=0; G.tarotSeen.length=0; G.repeatKills=0;
+  G.cardDraw=null; G.tarotLock=false;
+  if(G.player) G.player.cardFx=computeCardFx();
   G.running = true; G.paused = false;
   $('#hud-lv').textContent = `${L.chapter} ${L.chIdx} · ${L.name}`;
   $('#hud-chapter').textContent = L.novice
@@ -2287,13 +2443,24 @@ function damageEnemy(e, dmg, opt){
     (karmaSkillDamageBonusActive() ? 2 : 1);
   if(!opt.silent && G.player && G.player.pw.id==='void' && G.player.skill2T>0) d *= 1.5;
   if(e.weak>0) d *= 1.2;
+  if(!opt.silent && G.player && G.player.pw.id==='fate'){
+    const fx=G.player.cardFx;
+    if(fx && fx.skillDmg>1) d*=fx.skillDmg;
+    if(fx && fx.crit>0 && Math.random()<fx.crit) d*=fx.critMul;
+  }
   if(Admin.on && Admin.instakill && !opt.silent) d = e.hp+1;
   for(const z of G.zones) if(z.kind==='order' && dist2(e.x,e.y,z.x,z.y) < z.r*z.r) d *= 1.3;
   if(T.armor && !opt.trueDmg) d *= (1 - T.armor);
   e.hp -= d; e.hurt = .12;
+  if(!opt.silent && G.player && G.player.pw.id==='fate'){
+    const fx=G.player.cardFx;
+    if(fx && fx.lifesteal>0) healPlayer(d*fx.lifesteal);
+    if(fx && fx.exec>0 && e.hp>0 && e.hp/e.hpMax<fx.exec) e.hp=0;
+  }
   if(!opt.silent) burst(e.x, e.y-8, opt.big?10:5, T.color, opt.big?150:90);
   if(e.hp<=0 && !e.dead){
     e.dead = true; G.kills++;
+    fateOnKill(e, T);
     G.player.ult = clamp(G.player.ult + (T.boss?40:7), 0, 100);
     burst(e.x, e.y-8, T.boss?60:18, T.color, T.boss?260:170);
     if(T.boss){ G.shake=16; flash('#fff',.5); }
@@ -2381,6 +2548,10 @@ function spaceDodgeChance(){
 }
 function hurtPlayer(dmg){
   if(Admin.on && Admin.god) return false;
+  const pNow=G.player;
+  if(pNow && pNow.guard && pNow.guard.pose>0){ guardSuccess(pNow,dmg); return false; }
+  if(pNow && pNow.pw.id==='fate' && pNow.cardFx) dmg*=pNow.cardFx.dmgTaken;
+  if(pNow && pNow.shield>0){ const a=Math.min(pNow.shield,dmg); pNow.shield-=a; dmg-=a; if(dmg<=0) return false; }
   const p=G.player;
   if(p.inv>0 || p.dashT>0) return;
   if(p.pw.id==='space' && Math.random()<spaceDodgeChance()){
@@ -2449,17 +2620,19 @@ function doAttack(p){
   const galeGap = G.time - (p.lastAtkT==null ? -99 : p.lastAtkT);
   p.lastAtkT = G.time;
   const galeMul = (Admin.on && Admin.gale) ? clamp(galeGap/.30, .18, 1) : 1;
+  const cfx = (P.id==='fate' && p.cardFx) ? p.cardFx : null;
   p.atkCd = (Admin.on && Admin.gale) ? .04 :
     (A.cd * HERO_BALANCE.attackCooldownMul
     * (p.skillT>0 && P.id==='karma' ? .82 : 1)
-    * (p.skill2T>0 && P.id==='war' ? .75 : 1));
+    * (p.skill2T>0 && P.id==='war' ? .75 : 1)
+    * (cfx ? cfx.atkMul : 1));
   p.swing = 1; p.atkCount++;
-  let dmg = A.dmg * HERO_BALANCE.damageMul * galeMul;
+  let dmg = A.dmg * HERO_BALANCE.damageMul * galeMul * (P.id==='fate' ? fateMul() : 1);
   if(P.id==='karma') dmg *= (1 + p.karma*0.02) * (p.skillT>0 ? 1.6 : 1);
   if(P.id==='space') dmg *= 1.5;
   if(p.skillT>0 && P.id==='order') dmg *= 1.25;
   if(P.id==='war' && p.skill2T>0) dmg *= 1.35;
-  if(P.id==='fate' && (p.skillT>0 || p.skill2T>0 || Math.random()<.25))
+  if(P.id==='fate' && (p.skillT>0 || p.skill2T>0))
     dmg = rollFate(p, dmg * (p.skill2T>0 ? 1.3 : 1));
   if(A.mode==='melee'){
     let meleeHits=0;
@@ -2533,16 +2706,17 @@ function doAttack(p){
       }
     }
   } else {
-    const shots = A.spread||1;
+    const shots = (A.spread||1) + (cfx ? cfx.extraDice : 0);
     for(let i=0;i<shots;i++){
       const off = shots>1 ? (i-(shots-1)/2)*(A.spreadAng||.16) : 0;
       const a = ang + off + (P.id==='fate'?rand(-.08,.08):0);
       G.bullets.push({ x:p.x+Math.cos(ang)*8, y:p.y-10+Math.sin(ang)*8,
         vx:Math.cos(a)*A.speed, vy:Math.sin(a)*A.speed, r:A.r||3, dmg,
-        life:A.life||1.1, t:0, color:P.color, pierce:P.id==='space'?2:(A.pierce||0), owner:'p', hit:[],
-        guide: (P.id==='space'?7.5:P.id==='fate'?3.2:5.5), wallPierce:P.id==='space' });
+        life:A.life||1.1, t:0, color:P.color, pierce:(P.id==='space'?2:(A.pierce||0))+(cfx?cfx.pierce:0), owner:'p', hit:[],
+        guide: (P.id==='space'?7.5:P.id==='fate'?3.2:5.5)+(cfx?cfx.guideAdd:0), wallPierce:P.id==='space' });
     }
   }
+  tryCastScroll(p, ang, dmg);
 }
 function rollFate(p, dmg){
   const r = Math.random();
@@ -2557,7 +2731,9 @@ function tryDash(p){
   let dx = I.move.x, dy = I.move.y;
   if(!dx && !dy){ dx = p.aimX; dy = p.aimY; }
   const d = Math.hypot(dx,dy)||1; dx/=d; dy/=d;
-  p.dashCd = HERO_BALANCE.dashCooldown; p.dashT = .17; p.dashX=dx; p.dashY=dy; p.inv = Math.max(p.inv,.3);
+  p.dashCd = HERO_BALANCE.dashCooldown * (p.cardFx ? p.cardFx.dashMul : 1); p.dashT = .17; p.dashX=dx; p.dashY=dy; p.inv = Math.max(p.inv,.3);
+  if(p.cardFx && p.cardFx.chariotDmg>0){ for(const e of G.enemies) if(!e.dead && dist2(e.x,e.y,p.x,p.y)<60*60) damageEnemy(e,p.cardFx.chariotDmg,{}); }
+  dashScrollSkill(p,dx,dy);
   if(p.pw.id==='space'){
     const L = (p.skillT>0 ? 150 : 88);
     p.x = clamp(p.x+dx*L, 16, G.arena.w-16);
@@ -2744,6 +2920,133 @@ function updateSkill2(dt){
   if(s.phase!=='active') return;
   if(s.t>=s.dur){ if(def.expire) def.expire(p,s); s2Clear(p); }
 }
+/* ===== 卷轴：招式随机进入普攻 / 技能卷轴（参考 shishijiushishi 仓库） ===== */
+const SCROLL_MIN_GAP = .22;
+const SCROLLS = [
+  {id:'s_cleave',name:'裂空斩卷轴',color:'#ff9d6b',cast(p,ang,base,d){
+    const x=p.x+Math.cos(ang)*20, y=p.y-8+Math.sin(ang)*20;
+    G.slashes.push({x,y,a:ang,arc:1.7,r:64,t:0,dur:.30,color:d.color});
+    for(const e of scrollFoes(x,y,64)){
+      const diff=Math.abs(((Math.atan2((e.y-8)-y,e.x-x)-ang+Math.PI*3)%TAU)-Math.PI);
+      if(diff<=.85) scrollHit(e,base*.42);
+    }
+    burst(x,y,10,d.color,90);
+  }},
+  {id:'s_spin',name:'回旋卷轴',color:'#cfe4ff',cast(p,ang,base,d){
+    G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:48,t:0,dur:.28,color:d.color});
+    for(const e of scrollFoes(p.x,p.y-8,48)) scrollHit(e,base*.34);
+    burst(p.x,p.y-8,12,'#ffffff',70);
+  }},
+  {id:'s_chain',name:'连锁雷卷轴',color:'#8bd4ff',cast(p,ang,base,d){
+    const x=p.x+Math.cos(ang)*20, y=p.y-8+Math.sin(ang)*20;
+    const list=G.enemies.filter(e=>!e.dead&&dist2(e.x,e.y,x,y)<104*104)
+      .sort((a,b)=>dist2(a.x,a.y,x,y)-dist2(b.x,b.y,x,y)).slice(0,3);
+    for(const e of list){ scrollHit(e,base*.46); e.weak=Math.max(e.weak||0,2); burst(e.x,e.y-8,6,'#ffffff',90); }
+  }},
+  {id:'s_frost',name:'碎冰卷轴',color:'#9ee8ff',cast(p,ang,base,d){
+    const x=p.x+Math.cos(ang)*20, y=p.y-8+Math.sin(ang)*20;
+    G.slashes.push({x,y,a:0,arc:TAU,r:44,t:0,dur:.30,color:d.color});
+    for(const e of scrollFoes(x,y,44)){ scrollHit(e,base*.30); e.slow=Math.max(e.slow||0,3); e.weak=Math.max(e.weak||0,1.5); }
+    p.shield=Math.min(60,(p.shield||0)+12);
+    burst(x,y,10,d.color,60);
+  }},
+  {id:'s_leech',name:'汲血卷轴',color:'#ff6fa8',cast(p,ang,base,d){
+    const x=p.x+Math.cos(ang)*20, y=p.y-8+Math.sin(ang)*20; let total=0;
+    for(const e of scrollFoes(x,y,56)){ const b=e.hp; scrollHit(e,base*.38); total+=Math.max(0,b-e.hp); }
+    const heal=Math.min(10,total*.4); if(heal>0) p.hp=Math.min(p.hpMax,p.hp+heal);
+    G.slashes.push({x,y,a:0,arc:TAU,r:56,t:0,dur:.28,color:d.color});
+  }},
+  {id:'s_blast',name:'爆裂卷轴',color:'#ff4d6a',cast(p,ang,base,d){
+    const x=p.x+Math.cos(ang)*24, y=p.y-8+Math.sin(ang)*24;
+    G.ultFx.push({t:0,dur:.36,done:false,fn:(dt,o)=>{
+      if(o.done||o.t<.32) return; o.done=true;
+      G.slashes.push({x,y,a:0,arc:TAU,r:54,t:0,dur:.34,color:d.color});
+      burst(x,y,20,d.color,190);
+      for(const e of scrollFoes(x,y,54)){ scrollHit(e,base*.52); e.vx+=(e.x-x)*2; e.vy+=(e.y-y)*2; }
+      G.shake=Math.max(G.shake,5);
+    }});
+  }}
+];
+const SCROLL_MAP=Object.fromEntries(SCROLLS.map(s=>[s.id,s]));
+const SCROLL_IDS=SCROLLS.map(s=>s.id);
+const SKILL_DEFS=[
+  {id:'k_guard',name:'格挡卷轴',desc:'独立按键 F：消耗 25 点格挡条，0.45 秒内被命中完全免伤'},
+  {id:'k_parry',name:'弹反卷轴',desc:'格挡成功追加一次金色斩击与强力击退',req:'k_guard'},
+  {id:'k_dashslash',name:'冲刺斩击卷轴',desc:'冲刺结束瞬间自动接一次宽扇形横扫'},
+  {id:'k_thrust',name:'突刺卷轴',desc:'冲刺结束瞬间沿冲刺方向窄长直刺，击退更远'}
+];
+const SKILL_IDS=SKILL_DEFS.map(s=>s.id);
+function scrollFoes(x,y,r){ return G.enemies.filter(e=>!e.dead && dist2(e.x,e.y-8,x,y)<(r+e.r)*(r+e.r)); }
+function scrollHit(e,v){ damageEnemy(e,v,{big:true}); }
+function tryCastScroll(p,ang,base){
+  const ids=Save.data.scrolls||[]; if(!ids.length) return null;
+  if(G.time-(p.lastScrollT||-99)<SCROLL_MIN_GAP) return null;
+  const id=ids[randi(0,ids.length-1)], def=SCROLL_MAP[id];
+  if(!def) return null;
+  p.lastScrollT=G.time;
+  G.slashes.push({x:p.x,y:p.y-8,a:ang,arc:1.1,r:34,t:0,dur:.20,color:def.color});
+  try{ def.cast(p,ang,base,def); }catch(err){}
+  return def;
+}
+function skillLearned(id){ return (Save.data.skills||[]).indexOf(id)>=0; }
+function freshGuard(){ return {bar:100,pose:0,exhaust:0}; }
+function guardState(p){ return p.guard||(p.guard=freshGuard()); }
+function tryGuard(p){
+  if(!skillLearned('k_guard')) return;
+  const g=guardState(p);
+  if(g.exhaust>0 || g.bar<25) return;
+  g.bar-=25; g.pose=.45;
+  if(g.bar<25) g.exhaust=2.2;
+  G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:26,t:0,dur:.22,color:'#ffd76b'});
+}
+function updateGuard(p,dt){
+  if(!skillLearned('k_guard')) return;
+  const g=guardState(p);
+  g.pose=Math.max(0,g.pose-dt);
+  if(g.exhaust>0){ g.exhaust=Math.max(0,g.exhaust-dt); if(g.exhaust===0) g.bar=Math.max(g.bar,25); }
+  else g.bar=Math.min(100,g.bar+18*dt);
+}
+function guardSuccess(p,dmg){
+  const g=guardState(p); g.pose=0;
+  if(skillLearned('k_parry')){
+    const base=p.pw.atk.dmg*HERO_BALANCE.damageMul*.55;
+    G.slashes.push({x:p.x,y:p.y-8,a:p.aimAng,arc:1.5,r:70,t:0,dur:.30,color:'#ffe9a8'});
+    for(const e of scrollFoes(p.x,p.y-8,70)){ damageEnemy(e,base,{big:true}); e.vx+=(e.x-p.x)*3; e.vy+=(e.y-p.y)*3; }
+    toast('弹反');
+  } else toast('格挡');
+  return true;
+}
+function dashScrollSkill(p,dx,dy){
+  const base=p.pw.atk.dmg*HERO_BALANCE.damageMul;
+  if(skillLearned('k_dashslash')){
+    G.slashes.push({x:p.x,y:p.y-8,a:Math.atan2(dy,dx),arc:2.2,r:78,t:0,dur:.30,color:'#8bd4ff'});
+    for(const e of scrollFoes(p.x,p.y-8,78)) scrollHit(e,base*.45);
+  }
+  if(skillLearned('k_thrust')){
+    const a=Math.atan2(dy,dx);
+    for(let i=0;i<5;i++){
+      const x=p.x+Math.cos(a)*(24+i*18), y=p.y-8+Math.sin(a)*(24+i*18);
+      G.slashes.push({x,y,a,arc:.3,r:16,t:0,dur:.22,color:'#c9a6ff'});
+      for(const e of scrollFoes(x,y,18)){ scrollHit(e,base*.30); e.vx+=Math.cos(a)*260; e.vy+=Math.sin(a)*260; }
+    }
+  }
+}
+function scrollHudText(){
+  const sc=(Save.data.scrolls||[]).length, sk=(Save.data.skills||[]).length;
+  if(!sc && !sk) return '';
+  const g=G.player&&G.player.guard;
+  const guard=(sk && skillLearned('k_guard') && g) ? `格挡 ${Math.ceil(g.bar)}/100` : '';
+  return [guard,`招式 ${sc}/6`,`技能 ${sk}/4`].filter(Boolean).join(' · ');
+}
+function adminLearnScrolls(){
+  Save.data.scrolls=SCROLL_IDS.slice(); Save.save();
+  toast('已记录全部 6 种招式卷轴');
+}
+function adminLearnSkills(){
+  Save.data.skills=SKILL_IDS.slice(); Save.save();
+  toast('已习得 4 个技能卷轴 · 战斗中按 F 格挡');
+}
+
 function trySkill2(p){
   const def=S2[p.pw.id];
   if(!def) return legacySkill2(p);
@@ -2920,7 +3223,7 @@ function updateBattle(dt){
   }
   if(G.transit){ updateTransit(dt); return; }
   readInput();
-  const LOCK_R = 560;
+  const LOCK_R = 560 + (p.cardFx ? p.cardFx.lockAdd : 0);
   if(!p.tgt || p.tgt.dead || dist2(p.tgt.x,p.tgt.y,p.x,p.y) > (LOCK_R+70)**2){
     p.tgt = nearestEnemy(p.x, p.y-8, LOCK_R);
   } else {
@@ -2944,6 +3247,8 @@ function updateBattle(dt){
   if(combatActive) p.skillCd = Math.max(0, p.skillCd-dt);
   if(combatActive) p.skill2Cd = Math.max(0, p.skill2Cd-dt);
   updateSkill2(dt);
+  updateTarot(dt);
+  updateGuard(p,dt);
   if(Admin.on && Admin.noCd){ p.skillCd=0; p.skill2Cd=0; p.s2.cd=0; p.ult=100; p.dashCd=0; }
   if(p.skill2T>0 && combatActive){
     p.skill2T = Math.max(0, p.skill2T-dt);
@@ -2968,7 +3273,7 @@ function updateBattle(dt){
     if(p.skillT<=0){ p.skillT=0; toast('权能结束'); }
   }
   p.ult = clamp(p.ult + dt*1.2, 0, 100);
-  let spd = HERO_BALANCE.moveSpeed * (p.pw.moveSpeedMul||1);
+  let spd = HERO_BALANCE.moveSpeed * (p.pw.moveSpeedMul||1) * (p.cardFx ? p.cardFx.spdMul : 1);
   if(p.pw.id==='space' && p.skillT>0) spd *= 1.45;
   if(p.pw.id==='karma' && p.skillT>0) spd *= .92;
   if(p.pw.id==='war' && p.skill2T>0) spd *= 1.2;
@@ -3011,6 +3316,7 @@ function updateBattle(dt){
     }
   } else p.arcGhost = Math.max(0, (p.arcGhost||0) - dt);
   p.hitShake = Math.max(0, (p.hitShake||0) - dt*26);
+  if(I.guardReq){ I.guardReq=false; tryGuard(p); }
   if(I.dashReq){ I.dashReq=false; tryDash(p); }
   if(I.skillReq){ I.skillReq=false; trySkill(p); }
   if(I.skill2Req){ I.skill2Req=false; trySkill2(p); }
@@ -3130,7 +3436,8 @@ function updateEnemies(dt){
     }
     if(frozen){ resolveEnemyBlocks(e); continue; }
     const inOrderDomain=G.zones.some(z=>z.kind==='order' && dist2(e.x,e.y,z.x,z.y)<z.r*z.r);
-    const slowMul = Math.min(e.slow>0 ? .55 : 1, inOrderDomain ? .60 : 1);
+    const slowMul = Math.min(e.slow>0 ? .55 : 1, inOrderDomain ? .60 : 1,
+      (p && p.cardFx) ? p.cardFx.enemySlow : 1);
     const dx = p.x-e.x, dy=(p.y-8)-(e.y-8), d = Math.hypot(dx,dy)||1;
     const ux=dx/d, uy=dy/d;
     const route=enemyPathDirection(e), chaseX=route?route.x:ux, chaseY=route?route.y:uy;
@@ -3257,11 +3564,12 @@ function updateEnemies(dt){
 function updateBullets(dt){
   const p=G.player;
   const frozen = G.freeze>0 || (p.skillT>0 && p.pw.id==='time');
+  const eBulletMul = p.cardFx ? p.cardFx.bulletSlow : 1;
   for(let i=G.bullets.length-1;i>=0;i--){
     const b=G.bullets[i], oldX=b.x, oldY=b.y;
     b.t += dt;
     if(frozen && b.owner==='e'){  }
-    else { b.x += b.vx*dt; b.y += b.vy*dt; }
+    else { const m = b.owner==='e' ? eBulletMul : 1; b.x += b.vx*dt*m; b.y += b.vy*dt*m; }
     if(b.t>b.life || b.x<0||b.y<0||b.x>G.arena.w||b.y>G.arena.h){ G.bullets.splice(i,1); continue; }
     if(!b.wallPierce && (blockAt(b.x, b.y, (b.r||1)*0.5) || blockLine(oldX,oldY,b.x,b.y,(b.r||1)*0.5))){
       burst(b.x, b.y, 3, b.color, 55); G.bullets.splice(i,1); continue;
@@ -3433,6 +3741,12 @@ function updateHud(){
     passive.textContent=`业层 ${p.karma||0}/${KARMA_MAX_STACKS} · 伤害 +${((p.karma||0)*2).toFixed(0)}%${bonus}`;
     passive.style.color=p.pw.color;
   } else { passive.classList.add('hidden'); }
+  const fateTxt=fateHudText(), scrollTxt=scrollHudText();
+  if(fateTxt || scrollTxt){
+    const extra=[fateTxt,scrollTxt].filter(Boolean).join(' · ');
+    if(passive.classList.contains('hidden')){ passive.classList.remove('hidden'); passive.textContent=extra; passive.style.color=p.pw.color; }
+    else passive.textContent += ' · '+extra;
+  }
   if(p.skill2T>0){
     const buff = `${p.pw.skill2.name} ${p.skill2T.toFixed(1)}s`;
     if(passive.classList.contains('hidden')){
@@ -3807,6 +4121,8 @@ function setupUI(){
   $('#dbg-god').addEventListener('click', ()=>{ Admin.god=!Admin.god; adminSave(); syncDevUI(); updateDebugPanel(); });
   $('#dbg-instakill').addEventListener('click', ()=>{ Admin.instakill=!Admin.instakill; adminSave(); syncDevUI(); updateDebugPanel(); });
   $('#dbg-nocd').addEventListener('click', ()=>{ Admin.noCd=!Admin.noCd; adminSave(); syncDevUI(); updateDebugPanel(); });
+  $('#dbg-scroll-all').addEventListener('click', ()=>{ adminLearnScrolls(); updateDebugPanel(); });
+  $('#dbg-skill-all').addEventListener('click', ()=>{ adminLearnSkills(); updateDebugPanel(); });
 }
 function loop(ts){
   requestAnimationFrame(loop);
