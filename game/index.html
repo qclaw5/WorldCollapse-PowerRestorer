@@ -141,7 +141,6 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 #hud .bar span{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(8px,2vmin,11px);
   letter-spacing:.1em;text-shadow:0 1px 0 #000;color:#fff}
 #hud .pname{font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;color:var(--accent);text-shadow:0 2px 0 #000;margin-bottom:4px}.pname.passive{font-size:clamp(8px,1.9vmin,10px);letter-spacing:.08em;margin-top:-2px;margin-bottom:5px}
-.passive.order-mark{font-size:clamp(11px,2.6vmin,14px);font-weight:700;letter-spacing:.1em;text-shadow:0 0 10px rgba(255,233,168,.8),0 0 3px rgba(255,233,168,.9);margin-top:0;margin-bottom:5px}
 .pad{position:absolute;right:calc(12px + var(--safe-r));bottom:calc(14px + var(--safe-b));
   display:grid;grid-template-columns:repeat(2,auto);gap:clamp(8px,2vmin,16px);align-items:end;justify-items:center}
 .pbtn{pointer-events:auto;width:clamp(54px,13vmin,78px);height:clamp(54px,13vmin,78px);border-radius:50%;
@@ -217,7 +216,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <div style="margin-top:1.6em;color:#5d5878;font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;line-height:2">
             武器与弹幕会自动锁定并转向最近的敌人（转向带平滑过渡）<br>
             时间之权的「时间暂停」带有全屏倒计时演出<br>
-            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · Q 一技能 · R 二技能 · E 大招<br>
+            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · Q 权能技 · R 权能技 · E 大招<br>
             触屏：左半屏拖动移动 · 右侧按钮操作
           </div>
         </div>
@@ -225,12 +224,12 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
     </section>
     <section class="screen hidden" id="scr-power">
       <div class="topbar">
-        <div class="sect-h" style="margin:0">选择权能<small>权能决定武器、攻击方式与 Q / R 两套专属技能</small></div>
+        <div class="sect-h" style="margin:0">选择权能<small>权能决定你的武器、攻击方式与专属技能体系</small></div>
         <div style="color:var(--dim);font-size:clamp(10px,2.4vmin,13px);letter-spacing:.1em">1 / 2</div>
       </div>
       <div class="cardwrap" id="power-list"></div>
       <div class="detail power-detail" id="power-detail">选择一项权能以查看基础信息</div>
-      <div class="detail skill-detail" id="skill-detail">选择一项权能以查看 Q 一技能 / R 二技能</div>
+      <div class="detail skill-detail" id="skill-detail">选择一项权能以查看专属技能</div>
       <div class="foot">
         <button class="pxbtn ghost" id="btn-power-back">返 回</button>
         <button class="pxbtn primary" id="btn-power-next" disabled>确 认 权 能</button>
@@ -292,8 +291,8 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       </div>
       <div class="bossbar" id="bossbar"><div class="n" id="boss-n">故障守卫</div><div class="bar"><i id="boss-hp"></i></div></div>
       <div class="pad">
-        <div class="pbtn sk" id="b-skill">一技能<small id="b-skill-n">Q</small><div class="cd hidden" id="b-skill-cd"></div></div>
-        <div class="pbtn sk2" id="b-skill2">二技能<small id="b-skill2-n">R</small><div class="cd hidden" id="b-skill2-cd"></div></div>
+        <div class="pbtn sk" id="b-skill">权能<small id="b-skill-n">Q</small><div class="cd hidden" id="b-skill-cd"></div></div>
+        <div class="pbtn sk2" id="b-skill2"><small id="b-skill2-n">R</small><div class="cd hidden" id="b-skill2-cd"></div></div>
         <div class="pbtn ult" id="b-ult">大招<small id="b-ult-n">E</small><div class="cd hidden" id="b-ult-cd"></div></div>
         <div class="pbtn" id="b-dash">冲刺<small>Shift</small></div>
         <div class="pbtn atk" id="b-atk">攻击<small>长按</small></div>
@@ -362,7 +361,7 @@ const POWERS = [
     passive:'每次命中累积 1 层「业」，每层提升 2% 镰刀伤害（上限 175 层）；达到 100 层后，业力凝冥持续期间额外造成 100% 伤害',
     skill:{ name:'业力凝冥', duration:60, cooldown:90,
       desc:'镰刀伤害 +60% 并附加灼烧；业层达到 100 层后，本技能持续期间所有自身伤害额外 +100%；背后凝结死神虚影，使目标虚弱、移动迟缓；画面浮现暗角与紫色滤镜。' },
-    skill2:{ name:'业火回廊', duration:0, cooldown:18,
+    skill2:{ name:'业火回廊', duration:0, cooldown:3,
       desc:'引爆周身业力：半径 190 内敌人受到「42 + 业层×1.4」点伤害，附加 5 秒灼烧、4 秒虚弱与 3 秒减速；业层不消耗。' },
     brief:'近战 · 高爆发 · 持续灼烧' },
   { id:'time', name:'时间之权', color:'#ffcc44', color2:'#a06a10', metal:'#fff0b8',
@@ -371,7 +370,7 @@ const POWERS = [
     passive:'移动时会留下时之残影，残影消散时对周围造成少量伤害',
     skill:{ name:'时间暂停', duration:10, cooldown:45,
       desc:'冻结全场敌人与弹幕 10 秒，自身行动如常，画面转为金色调。' },
-    skill2:{ name:'时序回溯', duration:2.5, cooldown:30,
+    skill2:{ name:'时序回溯', duration:2.5, cooldown:3,
       desc:'回溯伤势：立即回复 35% 最大生命，2.5 秒无敌，冻结全场敌人与弹幕 2 秒，并缩短 Q 技能冷却 12 秒。' },
     brief:'远程 · 控制 · 安全输出' },
   { id:'life', name:'生命之权', color:'#58e08a', color2:'#1f7a4a', metal:'#c8ffdc',
@@ -380,7 +379,7 @@ const POWERS = [
     passive:'每 8 秒自动回复少量生命；周围敌人越多，回复越快',
     skill:{ name:'生命绽放', duration:12, cooldown:40,
       desc:'持续回复生命；荆棘环绕对近身敌人反伤，藤蔓束缚使其减速。' },
-    skill2:{ name:'荆棘结界', duration:8, cooldown:28,
+    skill2:{ name:'荆棘结界', duration:8, cooldown:3,
       desc:'展开跟随自身的荆棘结界 8 秒：每秒回复 6 点生命，结界内敌人持续受到伤害并被束缚减速。' },
     brief:'远程 · 续航 · 反伤' },
   { id:'fate', name:'命运之权', color:'#ff6fa8', color2:'#8c2350', metal:'#ffd0e4',
@@ -389,7 +388,7 @@ const POWERS = [
     passive:'攻击有 25% 概率掷出命运：暴击 / 连击 / 减速 / 爆裂',
     skill:{ name:'命运轮盘', duration:15, cooldown:35,
       desc:'轮盘常转：每次攻击必定触发随机命运效果，并大幅提升触发威力。' },
-    skill2:{ name:'逆转骰面', duration:8, cooldown:24,
+    skill2:{ name:'逆转骰面', duration:8, cooldown:3,
       desc:'立即降下 6 次随机天罚；随后 8 秒内每次攻击必定触发命运效果，且命运伤害再提升 30%。' },
     brief:'远程 · 随机 · 高风险高回报' },
   { id:'order', name:'秩序之权', color:'#cfe4ff', color2:'#4a6a9c', metal:'#ffe9a8',
@@ -399,7 +398,7 @@ const POWERS = [
     passive:'连续命中同一目标叠加「裁定」标记（最多 3 层），第 4 次命中触发 1.5 倍审判伤害；近战与律令剑气命中均叠加层数。',
     skill:{ name:'秩序领域', duration:40, cooldown:15,
       desc:'展开秩序领域：领域内敌人移动速度降低 40%、受到伤害增加 30%；自身每次攻击额外射出两道穿透律令斩击，并对近身目标追加律令裁决伤害。敌人开始燃烧后再次施放领域，每次使当前生效的秩序之炎与秩序燃烧各延长 15 秒，可重复叠加；未开始燃烧时施放不预存加成。' },
-    skill2:{ name:'即刻裁决', duration:0, cooldown:26,
+    skill2:{ name:'即刻裁决', duration:0, cooldown:3,
       desc:'为全场敌人直接叠满「裁定」并立即触发一次审判伤害，同时施加 3 秒减速与虚弱。' },
     brief:'近战 · 领域 · 稳定增伤' },
   { id:'space', name:'空间之权', color:'#35d6ff', color2:'#0b6f96', metal:'#c8f6ff',
@@ -408,7 +407,7 @@ const POWERS = [
     passive:'空间弹体穿墙贯穿敌人、伤害 +50%；冲刺瞬移；空间闪避基础 75%，每只存活普通怪 +1.5%，有存活 Boss +15%；携带空间坍缩再 +15% 闪避（最高 100%）；携带时之终焉时自身造成的伤害额外 +100%；闪避免疫本次伤害与僵直',
     skill:{ name:'空间折叠', duration:8, cooldown:25,
       desc:'瞬移距离翻倍，残影在原地爆裂造成范围伤害；期间移动速度提升。' },
-    skill2:{ name:'裂隙坍缩', duration:0, cooldown:22,
+    skill2:{ name:'裂隙坍缩', duration:0, cooldown:3,
       desc:'在最近敌人处撕开裂隙：半径 210 内敌人受到 90 点穿透伤害并被牵引 1.2 秒；自身瞬移至裂隙边缘并获得 0.6 秒无敌。' },
     brief:'远程 · 位移 · 机动' },
   { id:'void', name:'虚无之权', color:'#b07bff', color2:'#2a1c40', metal:'#e0d4ff',
@@ -417,7 +416,7 @@ const POWERS = [
     passive:'攻击无视敌人护甲，并将造成伤害的 12% 转化为生命',
     skill:{ name:'虚无吞噬', duration:10, cooldown:35,
       desc:'持续吞噬周围敌方弹幕；攻击吸血提升至 30%，并削弱敌人防御。' },
-    skill2:{ name:'归零视界', duration:10, cooldown:30,
+    skill2:{ name:'归零视界', duration:10, cooldown:3,
       desc:'清空全场敌方弹幕；10 秒内自身全部伤害 +50%、吸血提升至 30%，全场敌人虚弱（受到伤害 +20%）。' },
     brief:'远程 · 穿透 · 吸血' },
   { id:'war', name:'战意之权', color:'#ff7548', color2:'#8e2d1d', metal:'#ffe0b0',
@@ -426,7 +425,7 @@ const POWERS = [
     passive:'近战命中累积战意；连续命中4次后，下一次命中释放圆形震荡波，造成额外伤害、击退与减速',
     skill:{ name:'崩山重击', duration:.65, cooldown:22,
       desc:'高举陨星战锤砸向地面，对周围大范围敌人造成重击伤害，强力击退并减速。' },
-    skill2:{ name:'战意狂潮', duration:10, cooldown:26,
+    skill2:{ name:'战意狂潮', duration:10, cooldown:3,
       desc:'连放三道递增震荡波；10 秒内伤害 +35%、攻速 +25%、移速 +20%，并立即充满战意。' },
     brief:'近战 · 重锤 · 范围震荡' }
 ];
@@ -3198,23 +3197,15 @@ function updateHud(){
   $('#hud-en-t').textContent = p.ult>=100 ? '大招就绪！' : `大招 ${Math.floor(p.ult)}%`;
   const passive=$('#hud-passive');
   if(p.pw.id==='war'){
-    passive.classList.remove('hidden','order-mark');
+    passive.classList.remove('hidden');
     passive.textContent=p.warReady?'破军震荡 · READY':`战意 ${p.warHits}/4`;
     passive.style.color=p.warReady?'#ffe0b0':p.pw.color;
   } else if(p.pw.id==='karma'){
-    passive.classList.remove('hidden','order-mark');
+    passive.classList.remove('hidden');
     const bonus=karmaSkillDamageBonusActive() ? ' · 凝冥额外伤害 +100%' : '';
     passive.textContent=`业层 ${p.karma||0}/${KARMA_MAX_STACKS} · 伤害 +${((p.karma||0)*2).toFixed(0)}%${bonus}`;
     passive.style.color=p.pw.color;
-  } else if(p.pw.id==='order'){
-    passive.classList.remove('hidden');
-    passive.classList.add('order-mark');
-    const tgt = (p.markTarget!=null) ? G.enemies.find(o=>o.id===p.markTarget && !o.dead) : null;
-    const mk = tgt ? Math.min(3, tgt.mark||0) : 0;
-    const dom = isOrderDomainActive(p) ? ` · 领域 ${Math.ceil(p.skillT)}s` : '';
-    passive.textContent=`◆ 裁定 ${mk}/3${dom}`;
-    passive.style.color=p.pw.metal;
-  } else { passive.classList.remove('order-mark'); passive.classList.add('hidden'); }
+  } else { passive.classList.add('hidden'); }
   if(p.skill2T>0){
     const buff = `${p.pw.skill2.name} ${p.skill2T.toFixed(1)}s`;
     if(passive.classList.contains('hidden')){
@@ -3344,7 +3335,7 @@ function buildPowerCards(){
          <div class="power-passive"><span>被动能力</span><b>${P.passive}</b></div>`;
       const s1=P.skill, s2=P.skill2;
       $('#skill-detail').innerHTML =
-        `<div class="detail-title">专属技能 · Q 一技能 / R 二技能</div>
+        `<div class="detail-title">专属技能</div>
          <div class="skill-head"><b class="skill-name">${s1.name}</b><span class="skill-key">Q · CD ${s1.cooldown}s${s1.duration?` · ${s1.duration}s`:''}</span></div>
          <p class="skill-desc">${s1.desc}</p>
          <div class="skill-sep"></div>
@@ -3454,7 +3445,7 @@ function buildMap(){
     const n=document.createElement('div');
     n.className='node'+(L.tier==='origin'?' origin':'')+(L.tier==='deep'?' deep':'')+(L.tier==='post'?' post':'')+(isDone?' done':'')+(isOpen?'':' locked')+(isOpen&&!isDone?' cur':'');
     n.style.left=L.x+'%'; n.style.top=L.y+'%';
-    const zone = `${L.parts}图`;
+    const zone = L.parts===1 ? '单地图' : `${L.parts}图`;
     n.innerHTML=`<div class="dot"></div><div class="nm">${L.name}</div>`+
       `<div class="lv">${L.chapterShort} ${L.chIdx}/${L.chTotal} · ${zone}${L.finalBoss?' · 终极BOSS':L.boss?' · BOSS':''}</div>`;
     if(isOpen) n.addEventListener('click', ()=>{ G.power=G.power||d.power; G.ult=G.ult||d.ult; startLevel(L.id); });
