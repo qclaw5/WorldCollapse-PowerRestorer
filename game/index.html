@@ -225,8 +225,6 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <div class="foot">
             <button class="pxbtn primary" id="btn-start">开 始 修 复</button>
             <button class="pxbtn ghost" id="btn-continue">继 续 存 档</button>
-            <button class="pxbtn ghost" id="btn-shop">卷 轴 商 店</button>
-            <button class="pxbtn ghost" id="btn-admin">管 理 员 模 式</button>
           </div>
           <div style="margin-top:1.6em;color:#5d5878;font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;line-height:2">
             武器与弹幕会自动锁定并转向最近的敌人（转向带平滑过渡）<br>
@@ -244,7 +242,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       </div>
       <div class="detail">
         <div class="detail-title">开 发 者 模 式</div>
-        <p class="skill-desc">输入密钥后开启开发者模式，开启状态持久化保存；关闭模式不会回收已解锁内容。密钥与参考仓库一致（纯小写拼音全拼）。</p>
+        <p class="skill-desc">密钥 <b>yishidadaniubi</b>（已自动填好，直接点「开 启」即可）；开启状态持久化保存；关闭模式不会回收已解锁内容。</p>
         <div class="dev-keyrow">
           <input id="dev-key" type="text" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="输入小写拼音密钥">
           <button class="pxbtn primary" id="btn-dev-unlock">开 启</button>
@@ -301,6 +299,22 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
         <div class="skill-desc" id="shop-owned">—</div>
       </div>
     </section>
+    <section class="screen hidden" id="scr-settings">
+      <div class="topbar">
+        <div class="sect-h" style="margin:0">设 置<small>局内可调 · 管理员模式与卷轴</small></div>
+        <button class="pxbtn ghost" id="btn-settings-back" style="padding:.45em .7em;font-size:clamp(9px,2.1vmin,12px)">返 回</button>
+      </div>
+      <div class="detail">
+        <div class="detail-title">管 理 员 模 式</div>
+        <div class="skill-desc">调试与测试装备。密钥 <b>yishidadaniubi</b> 已自动填好，进去直接点「开 启」即可，不用自己输。</div>
+        <div class="admin-btns"><button class="pxbtn primary" id="btn-settings-admin">进入管理员模式</button></div>
+      </div>
+      <div class="detail">
+        <div class="detail-title">卷 轴 商 店</div>
+        <div class="skill-desc">进关前后随时挑选 / 更换招式卷轴（同时只能持有 1 种）与技能卷轴，不需要货币。</div>
+        <div class="admin-btns"><button class="pxbtn primary" id="btn-settings-shop">进入卷轴商店</button></div>
+      </div>
+    </section>
     <section class="screen hidden" id="scr-power">
       <div class="topbar">
         <div class="sect-h" style="margin:0">选择权能<small>权能决定你的武器、攻击方式与专属技能体系</small></div>
@@ -330,6 +344,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       <div class="topbar">
         <div class="sect-h" style="margin:0">世界故障图<small id="map-sub">点击故障点进入修复作战</small></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:65%">
+          <button class="pxbtn ghost" id="btn-map-settings" style="padding:.45em .7em;font-size:clamp(9px,2.1vmin,12px);white-space:nowrap">设 置</button>
           <button class="pxbtn ghost" id="btn-change-power" style="padding:.45em .7em;font-size:clamp(9px,2.1vmin,12px);white-space:nowrap">更换英雄</button>
           <button class="pxbtn ghost" id="btn-change-ult" style="padding:.45em .7em;font-size:clamp(9px,2.1vmin,12px);white-space:nowrap">更换大招</button>
           <button class="pxbtn ghost" id="btn-reset" style="padding:.45em .7em;font-size:clamp(9px,2.1vmin,12px);white-space:nowrap">重置存档</button>
@@ -397,6 +412,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
         <h2>暂 停</h2>
         <p id="pause-tip">深呼吸，世界还在等你</p>
         <div class="foot">
+          <button class="pxbtn ghost" id="btn-pause-settings">设 置</button>
           <button class="pxbtn ghost" id="btn-quit">放弃作战</button>
           <button class="pxbtn primary" id="btn-resume">继 续</button>
         </div>
@@ -879,7 +895,7 @@ function syncDevUI(){
   const u=$('#btn-dev-unlock'), c=$('#btn-dev-close'), k=$('#dev-key'), panel=$('#admin-panel');
   if(u) u.classList.toggle('hidden', on);
   if(c) c.classList.toggle('hidden', !on);
-  if(k){ k.disabled=on; if(on) k.value=''; }
+  if(k){ k.disabled=on; if(on) k.value=''; else if(!k.value) k.value=DEV_KEY; }
   if(panel) panel.style.display = on ? '' : 'none';
   const t=(id,label,key)=>{ const b=$(id); if(b) b.textContent=label+'：'+(Admin[key]?'开':'关'); };
   t('#dbg-god','无敌','god'); t('#dbg-instakill','一击必杀','instakill'); t('#dbg-nocd','技能无冷却','noCd');
@@ -3861,7 +3877,7 @@ function showScreen(name){
   $('#scr-result').classList.add('hidden');
   $('#scr-pause').classList.add('hidden');
   $('#hud').classList.toggle('hidden', name!=='battle');
-  const map = {title:'#scr-title', power:'#scr-power', ult:'#scr-ult', map:'#scr-map', admin:'#scr-admin', shop:'#scr-shop'};
+  const map = {title:'#scr-title', power:'#scr-power', ult:'#scr-ult', map:'#scr-map', admin:'#scr-admin', shop:'#scr-shop', settings:'#scr-settings'};
   if(map[name]) $(map[name]).classList.remove('hidden');
 }
 function togglePause(){
@@ -4165,12 +4181,27 @@ function setupUI(){
   $('#btn-resume').addEventListener('click', ()=>togglePause());
   $('#btn-quit').addEventListener('click', ()=>{ G.paused=false; G.running=false; buildMap(); showScreen('map'); });
   addEventListener('keydown', e=>{ if(e.key==='Shift') Input.dashReq=true; });
-  /* 卷轴商店 */
-  $('#btn-shop').addEventListener('click', ()=>{ buildShop(); showScreen('shop'); });
-  $('#btn-shop-back').addEventListener('click', ()=>showScreen('title'));
-  /* 管理员模式 */
-  $('#btn-admin').addEventListener('click', ()=>{ syncDevUI(); updateDebugPanel(); showScreen('admin'); });
-  $('#btn-admin-back').addEventListener('click', ()=>showScreen('title'));
+  /* 局内设置：管理员模式与卷轴商店只从这里进，标题页不再暴露 */
+  let settingsFromPause=false;
+  const openSettings=(fromPause)=>{
+    settingsFromPause=!!fromPause;
+    if(fromPause) $('#scr-pause').classList.add('hidden');
+    showScreen('settings');
+  };
+  const closeSettings=()=>{
+    if(settingsFromPause){
+      settingsFromPause=false;
+      showScreen('battle');
+      $('#scr-pause').classList.remove('hidden');
+    } else { buildMap(); showScreen('map'); }
+  };
+  $('#btn-map-settings').addEventListener('click', ()=>openSettings(false));
+  $('#btn-pause-settings').addEventListener('click', ()=>openSettings(true));
+  $('#btn-settings-back').addEventListener('click', closeSettings);
+  $('#btn-settings-admin').addEventListener('click', ()=>{ syncDevUI(); updateDebugPanel(); showScreen('admin'); });
+  $('#btn-settings-shop').addEventListener('click', ()=>{ buildShop(); showScreen('shop'); });
+  $('#btn-admin-back').addEventListener('click', ()=>showScreen('settings'));
+  $('#btn-shop-back').addEventListener('click', ()=>showScreen('settings'));
   const devInput=$('#dev-key');
   if(devInput) devInput.addEventListener('keydown', e=>{
     if(e.key==='Enter'){ e.preventDefault(); if(!devModeOn() && !tryEnableDevMode(devInput.value)) toast('密钥不正确'); }
