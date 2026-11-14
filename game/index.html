@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#07070d">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>崩解世界 · 权能修复者 · 2026.11.12.3</title>
+<title>崩解世界 · 权能修复者 · 2026.11.14.1</title>
 <style>
 :root{
   --accent:#a86bff; --accent2:#5b2bbf; --accent-soft:rgba(168,107,255,.18);
@@ -71,6 +71,7 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg0);c
 .skill-name{font-size:clamp(12px,3vmin,15px);color:var(--accent);font-weight:700}
 .skill-key{flex:0 0 auto;padding:3px 7px;border:1px solid var(--line);font-size:clamp(9px,2.1vmin,11px);color:var(--dim)}
 .skill-desc{margin:0;color:var(--dim);font-size:clamp(9px,2.25vmin,12px);line-height:1.55}
+.skill-sep{height:1px;background:var(--line);margin:7px 0}
 .skill-timing{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
 .skill-time{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:5px;padding:6px 8px;border:1px solid var(--line);background:rgba(255,255,255,.025)}
 .skill-time span{font-size:clamp(9px,2.2vmin,11px);color:var(--dim);white-space:nowrap}
@@ -151,6 +152,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 .pbtn.atk{width:clamp(66px,16vmin,96px);height:clamp(66px,16vmin,96px);border-color:var(--accent);
   background:radial-gradient(circle at 50% 35%,var(--accent-soft),rgba(18,16,32,.8));box-shadow:0 0 20px var(--accent-soft)}
 .pbtn.sk{border-color:var(--accent)}
+.pbtn.sk2{border-color:var(--accent2)}
 .pbtn.ult{border-color:#ffd76b}
 .pbtn .cd{position:absolute;inset:0;border-radius:50%;background:rgba(4,4,10,.78);
   display:grid;place-items:center;text-align:center;white-space:pre-line;padding:3px;
@@ -182,7 +184,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 .chip.on{border-color:var(--accent);color:var(--accent)}
 @media (orientation:landscape) and (min-width:700px){
   .cardwrap{grid-template-columns:repeat(2,1fr)}
-  .pad{grid-template-columns:repeat(4,auto);right:calc(18px + var(--safe-r));bottom:calc(18px + var(--safe-b))}
+  .pad{grid-template-columns:repeat(5,auto);right:calc(18px + var(--safe-r));bottom:calc(18px + var(--safe-b))}
   #hud .vitals{width:min(32%,340px)}
 }
 @media (orientation:portrait) and (min-width:600px){
@@ -215,7 +217,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <div style="margin-top:1.6em;color:#5d5878;font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;line-height:2">
             武器与弹幕会自动锁定并转向最近的敌人（转向带平滑过渡）<br>
             时间之权的「时间暂停」带有全屏倒计时演出<br>
-            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · Q 权能技 · E 大招<br>
+            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · Q 一技能 · R 二技能 · E 大招<br>
             触屏：左半屏拖动移动 · 右侧按钮操作
           </div>
         </div>
@@ -223,12 +225,12 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
     </section>
     <section class="screen hidden" id="scr-power">
       <div class="topbar">
-        <div class="sect-h" style="margin:0">选择权能<small>权能决定你的武器、攻击方式与专属技能体系</small></div>
+        <div class="sect-h" style="margin:0">选择权能<small>权能决定武器、攻击方式与 Q / R 两套专属技能</small></div>
         <div style="color:var(--dim);font-size:clamp(10px,2.4vmin,13px);letter-spacing:.1em">1 / 2</div>
       </div>
       <div class="cardwrap" id="power-list"></div>
       <div class="detail power-detail" id="power-detail">选择一项权能以查看基础信息</div>
-      <div class="detail skill-detail" id="skill-detail">选择一项权能以查看专属技能</div>
+      <div class="detail skill-detail" id="skill-detail">选择一项权能以查看 Q 一技能 / R 二技能</div>
       <div class="foot">
         <button class="pxbtn ghost" id="btn-power-back">返 回</button>
         <button class="pxbtn primary" id="btn-power-next" disabled>确 认 权 能</button>
@@ -290,7 +292,8 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       </div>
       <div class="bossbar" id="bossbar"><div class="n" id="boss-n">故障守卫</div><div class="bar"><i id="boss-hp"></i></div></div>
       <div class="pad">
-        <div class="pbtn sk" id="b-skill">权能<small id="b-skill-n">Q</small><div class="cd hidden" id="b-skill-cd"></div></div>
+        <div class="pbtn sk" id="b-skill">一技能<small id="b-skill-n">Q</small><div class="cd hidden" id="b-skill-cd"></div></div>
+        <div class="pbtn sk2" id="b-skill2">二技能<small id="b-skill2-n">R</small><div class="cd hidden" id="b-skill2-cd"></div></div>
         <div class="pbtn ult" id="b-ult">大招<small id="b-ult-n">E</small><div class="cd hidden" id="b-ult-cd"></div></div>
         <div class="pbtn" id="b-dash">冲刺<small>Shift</small></div>
         <div class="pbtn atk" id="b-atk">攻击<small>长按</small></div>
@@ -359,6 +362,8 @@ const POWERS = [
     passive:'每次命中累积 1 层「业」，每层提升 2% 镰刀伤害（上限 175 层）；达到 100 层后，业力凝冥持续期间额外造成 100% 伤害',
     skill:{ name:'业力凝冥', duration:60, cooldown:90,
       desc:'镰刀伤害 +60% 并附加灼烧；业层达到 100 层后，本技能持续期间所有自身伤害额外 +100%；背后凝结死神虚影，使目标虚弱、移动迟缓；画面浮现暗角与紫色滤镜。' },
+    skill2:{ name:'业火回廊', duration:0, cooldown:18,
+      desc:'引爆周身业力：半径 190 内敌人受到「42 + 业层×1.4」点伤害，附加 5 秒灼烧、4 秒虚弱与 3 秒减速；业层不消耗。' },
     brief:'近战 · 高爆发 · 持续灼烧' },
   { id:'time', name:'时间之权', color:'#ffcc44', color2:'#a06a10', metal:'#fff0b8',
     weapon:'金辉怀表', tagline:'时间，是可以被拨动的齿轮',
@@ -366,6 +371,8 @@ const POWERS = [
     passive:'移动时会留下时之残影，残影消散时对周围造成少量伤害',
     skill:{ name:'时间暂停', duration:10, cooldown:45,
       desc:'冻结全场敌人与弹幕 10 秒，自身行动如常，画面转为金色调。' },
+    skill2:{ name:'时序回溯', duration:2.5, cooldown:30,
+      desc:'回溯伤势：立即回复 35% 最大生命，2.5 秒无敌，冻结全场敌人与弹幕 2 秒，并缩短 Q 技能冷却 12 秒。' },
     brief:'远程 · 控制 · 安全输出' },
   { id:'life', name:'生命之权', color:'#58e08a', color2:'#1f7a4a', metal:'#c8ffdc',
     weapon:'生息藤杖', tagline:'一切伤口，终会发芽',
@@ -373,6 +380,8 @@ const POWERS = [
     passive:'每 8 秒自动回复少量生命；周围敌人越多，回复越快',
     skill:{ name:'生命绽放', duration:12, cooldown:40,
       desc:'持续回复生命；荆棘环绕对近身敌人反伤，藤蔓束缚使其减速。' },
+    skill2:{ name:'荆棘结界', duration:8, cooldown:28,
+      desc:'展开跟随自身的荆棘结界 8 秒：每秒回复 6 点生命，结界内敌人持续受到伤害并被束缚减速。' },
     brief:'远程 · 续航 · 反伤' },
   { id:'fate', name:'命运之权', color:'#ff6fa8', color2:'#8c2350', metal:'#ffd0e4',
     weapon:'命运骰', tagline:'骰子落下之前，胜负无人知晓',
@@ -380,6 +389,8 @@ const POWERS = [
     passive:'攻击有 25% 概率掷出命运：暴击 / 连击 / 减速 / 爆裂',
     skill:{ name:'命运轮盘', duration:15, cooldown:35,
       desc:'轮盘常转：每次攻击必定触发随机命运效果，并大幅提升触发威力。' },
+    skill2:{ name:'逆转骰面', duration:8, cooldown:24,
+      desc:'立即降下 6 次随机天罚；随后 8 秒内每次攻击必定触发命运效果，且命运伤害再提升 30%。' },
     brief:'远程 · 随机 · 高风险高回报' },
   { id:'order', name:'秩序之权', color:'#cfe4ff', color2:'#4a6a9c', metal:'#ffe9a8',
     weapon:'律令之剑', tagline:'万物各行其位，各守其序',
@@ -388,6 +399,8 @@ const POWERS = [
     passive:'连续命中同一目标叠加「裁定」标记（最多 3 层），第 4 次命中触发 1.5 倍审判伤害；近战与律令剑气命中均叠加层数。',
     skill:{ name:'秩序领域', duration:40, cooldown:15,
       desc:'展开秩序领域：领域内敌人移动速度降低 40%、受到伤害增加 30%；自身每次攻击额外射出两道穿透律令斩击，并对近身目标追加律令裁决伤害。敌人开始燃烧后再次施放领域，每次使当前生效的秩序之炎与秩序燃烧各延长 15 秒，可重复叠加；未开始燃烧时施放不预存加成。' },
+    skill2:{ name:'即刻裁决', duration:0, cooldown:26,
+      desc:'为全场敌人直接叠满「裁定」并立即触发一次审判伤害，同时施加 3 秒减速与虚弱。' },
     brief:'近战 · 领域 · 稳定增伤' },
   { id:'space', name:'空间之权', color:'#35d6ff', color2:'#0b6f96', metal:'#c8f6ff',
     weapon:'裂隙指环', tagline:'两点之间，不必路过中间',
@@ -395,6 +408,8 @@ const POWERS = [
     passive:'空间弹体穿墙贯穿敌人、伤害 +50%；冲刺瞬移；空间闪避基础 75%，每只存活普通怪 +1.5%，有存活 Boss +15%；携带空间坍缩再 +15% 闪避（最高 100%）；携带时之终焉时自身造成的伤害额外 +100%；闪避免疫本次伤害与僵直',
     skill:{ name:'空间折叠', duration:8, cooldown:25,
       desc:'瞬移距离翻倍，残影在原地爆裂造成范围伤害；期间移动速度提升。' },
+    skill2:{ name:'裂隙坍缩', duration:0, cooldown:22,
+      desc:'在最近敌人处撕开裂隙：半径 210 内敌人受到 90 点穿透伤害并被牵引 1.2 秒；自身瞬移至裂隙边缘并获得 0.6 秒无敌。' },
     brief:'远程 · 位移 · 机动' },
   { id:'void', name:'虚无之权', color:'#b07bff', color2:'#2a1c40', metal:'#e0d4ff',
     weapon:'虚无之核', tagline:'被抹去的，从未存在过',
@@ -402,6 +417,8 @@ const POWERS = [
     passive:'攻击无视敌人护甲，并将造成伤害的 12% 转化为生命',
     skill:{ name:'虚无吞噬', duration:10, cooldown:35,
       desc:'持续吞噬周围敌方弹幕；攻击吸血提升至 30%，并削弱敌人防御。' },
+    skill2:{ name:'归零视界', duration:10, cooldown:30,
+      desc:'清空全场敌方弹幕；10 秒内自身全部伤害 +50%、吸血提升至 30%，全场敌人虚弱（受到伤害 +20%）。' },
     brief:'远程 · 穿透 · 吸血' },
   { id:'war', name:'战意之权', color:'#ff7548', color2:'#8e2d1d', metal:'#ffe0b0',
     weapon:'陨星战锤', tagline:'以重锤击碎敌阵，以战意震荡大地', hp:175, moveSpeedMul:.92,
@@ -409,6 +426,8 @@ const POWERS = [
     passive:'近战命中累积战意；连续命中4次后，下一次命中释放圆形震荡波，造成额外伤害、击退与减速',
     skill:{ name:'崩山重击', duration:.65, cooldown:22,
       desc:'高举陨星战锤砸向地面，对周围大范围敌人造成重击伤害，强力击退并减速。' },
+    skill2:{ name:'战意狂潮', duration:10, cooldown:26,
+      desc:'连放三道递增震荡波；10 秒内伤害 +35%、攻速 +25%、移速 +20%，并立即充满战意。' },
     brief:'近战 · 重锤 · 范围震荡' }
 ];
 const POWER_MAP = Object.fromEntries(POWERS.map(p=>[p.id,p]));
@@ -515,17 +534,10 @@ for(const chapter of EXPANSION_CHAPTERS){
 
 LEVELS.find(L=>L.id==='origin').finalBoss = false;
 
-// 关卡强度：每关至少 4 区域 / 每区至少 3 波；怪量与生命全面提升；Boss 每 5 关一个
-const MIN_PARTS = 4, MIN_WAVES = 3;
-const MOB_COUNT_MUL = 1.5, MOB_HP_BASE = 1.45, MOB_HP_PER_LEVEL = .03;
+// 关卡结构沿用原始渐进曲线：起点 1/2 单图、3 双图、4 三图、5 四图；怪量与生命不额外放大
+// 保留：Boss 每 5 关一个；扩展章节图例按章节动态标记
 LEVELS.forEach((L, i) => {
   const seq = i + 1;
-  while(L.mapNames.length < MIN_PARTS) L.mapNames.push(`${L.chapterShort}·区域 ${L.mapNames.length+1}`);
-  L.parts = Math.max(MIN_PARTS, L.parts, L.mapNames.length);
-  L.wavesPerPart = Math.max(MIN_WAVES, L.wavesPerPart);
-  const perLen = L.per.length, perLast = L.per[perLen-1] || 6;
-  while(L.per.length < L.wavesPerPart) L.per.push(perLast + (L.per.length - perLen + 1)*2);
-  L.per = L.per.map(v => Math.round(v * MOB_COUNT_MUL) + Math.floor(i/10));
   L.waves = L.parts * L.wavesPerPart;
   L.boss = (seq % 5 === 0);
   L.finalBoss = (seq === LEVELS.length);
@@ -845,7 +857,7 @@ const W2S = (wx,wy) => ({ x:(wx-G.cam.x)*G.scale, y:(wy-G.cam.y)*G.scale });
 const Input = {
   keys:{}, mx:0, my:0, mdown:false, hasMouse:false,
   stick:{on:false, id:null, ox:0, oy:0, x:0, y:0, dx:0, dy:0},
-  atk:false, dashReq:false, skillReq:false, ultReq:false,
+  atk:false, dashReq:false, skillReq:false, skill2Req:false, ultReq:false,
   move:{x:0, y:0}, aim:{x:1, y:0}
 };
 const MOVE_KEY_CODES = {
@@ -870,6 +882,7 @@ function setupInput(){
     if(e.key===' ') e.preventDefault();
     if(e.key==='j'||e.key==='J') Input.atk = true;
     if(e.key==='q'||e.key==='Q') Input.skillReq = true;
+    if(e.key==='r'||e.key==='R'||e.key==='2') Input.skill2Req = true;
     if(e.key==='e'||e.key==='E') Input.ultReq = true;
     if(e.key==='Escape') togglePause();
   });
@@ -892,6 +905,7 @@ function setupInput(){
   bindHold('#b-atk',  v=>Input.atk=v);
   bindTap('#b-dash',  ()=>Input.dashReq=true);
   bindTap('#b-skill', ()=>Input.skillReq=true);
+  bindTap('#b-skill2',()=>Input.skill2Req=true);
   bindTap('#b-ult',   ()=>Input.ultReq=true);
   bindTap('#btn-pause',()=>togglePause());
   addEventListener('blur', clearInput);
@@ -911,7 +925,7 @@ function resetStick(){
 function clearInput(){
   Input.keys = {};
   Input.atk = false;
-  Input.dashReq = Input.skillReq = Input.ultReq = false;
+  Input.dashReq = Input.skillReq = Input.skill2Req = Input.ultReq = false;
   resetStick();
   Input.move.x = Input.move.y = 0;
 }
@@ -2011,7 +2025,7 @@ function makePlayer(pwId){
   return { x:G.arena.w/2, y:G.arena.h/2+60, vx:0, vy:0, r:6,
     hp:baseHp, hpMax:baseHp, face:1, aimX:1, aimY:0, swing:0,
     atkCd:0, dashCd:0, dashT:0, dashX:1, dashY:0, inv:0, hurtFlash:0,
-    skillCd:0, skillT:0, ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
+    skillCd:0, skillT:0, skill2Cd:0, skill2T:0, skill2Tick:0, ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
     pw:P, atkCount:0, roll:0, aimAng:0, atkAng:0, tgt:null, lockFx:0, turnBoost:0,
     trail:[], trailT:0, dustT:0, hitShake:0, arcGhost:0 };
 }
@@ -2038,6 +2052,7 @@ function startLevel(id){
   $('#hud-power').style.color = POWER_MAP[G.power].color;
   $('#bossbar').classList.remove('on');
   $('#b-skill-n').textContent = POWER_MAP[G.power].skill.name;
+  $('#b-skill2-n').textContent = POWER_MAP[G.power].skill2.name;
   $('#b-ult-n').textContent = G.ult==='u_order'
     ? (G.orderNextAnnihilation ? '秩序焚灭' : '秩序审判')
     : ULT_MAP[G.ult].name;
@@ -2146,7 +2161,7 @@ function spawnEnemy(type, at){
     if(free(ax,ay)){ x=ax; y=ay; }
   }
   const levelIndex=Math.max(0,LEVELS.findIndex(L=>L.id===G.levelId));
-  const hpScale = T.boss ? (1.15 + levelIndex*.025) : (MOB_HP_BASE + levelIndex*MOB_HP_PER_LEVEL);
+  const hpScale = 1 + Math.max(0, levelIndex-14)*.025;
   const scaledHp=Math.round(T.hp*hpScale);
   const e = { id:randi(1,9999), type, x, y, vx:0, vy:0, r:T.r, hp:scaledHp, hpMax:scaledHp,
     cool:rand(.4,1.6), hurt:0, burn:0, slow:0, weak:0, charging:0, chargeCd:rand(1,3),
@@ -2183,6 +2198,7 @@ function damageEnemy(e, dmg, opt){
   // Apply once at the central damage entry point, after existing attack bonuses.
   let d = dmg * (spaceTimeDamageBonusActive() ? 2 : 1) *
     (karmaSkillDamageBonusActive() ? 2 : 1);
+  if(!opt.silent && G.player && G.player.pw.id==='void' && G.player.skill2T>0) d *= 1.5;
   if(e.weak>0) d *= 1.2;
   for(const z of G.zones) if(z.kind==='order' && dist2(e.x,e.y,z.x,z.y) < z.r*z.r) d *= 1.3;
   if(T.armor && !opt.trueDmg) d *= (1 - T.armor);
@@ -2341,13 +2357,17 @@ function doAttack(p){
   p.atkAng = ang;
   p.turnBoost = 0.34;
   p.aimX = Math.cos(ang); p.aimY = Math.sin(ang);
-  p.atkCd = A.cd * HERO_BALANCE.attackCooldownMul * (p.skillT>0 && P.id==='karma' ? .82 : 1);
+  p.atkCd = A.cd * HERO_BALANCE.attackCooldownMul
+    * (p.skillT>0 && P.id==='karma' ? .82 : 1)
+    * (p.skill2T>0 && P.id==='war' ? .75 : 1);
   p.swing = 1; p.atkCount++;
   let dmg = A.dmg * HERO_BALANCE.damageMul;
   if(P.id==='karma') dmg *= (1 + p.karma*0.02) * (p.skillT>0 ? 1.6 : 1);
   if(P.id==='space') dmg *= 1.5;
   if(p.skillT>0 && P.id==='order') dmg *= 1.25;
-  if(P.id==='fate' && (p.skillT>0 || Math.random()<.25)) dmg = rollFate(p, dmg);
+  if(P.id==='war' && p.skill2T>0) dmg *= 1.35;
+  if(P.id==='fate' && (p.skillT>0 || p.skill2T>0 || Math.random()<.25))
+    dmg = rollFate(p, dmg * (p.skill2T>0 ? 1.3 : 1));
   if(A.mode==='melee'){
     let meleeHits=0;
     const range = A.range, arc = A.arc;
@@ -2388,7 +2408,7 @@ function doAttack(p){
           G.slashes.push({x:hpx,y:hpy,a:ea,arc:.55,r:Math.max(10,e.r+9),t:0,dur:.16,color:'#ffffff'});
         }
       }
-      if(P.id==='void') p.hp = Math.min(p.hpMax, p.hp + dmg*.12);
+      if(P.id==='void') p.hp = Math.min(p.hpMax, p.hp + dmg*((p.skillT>0||p.skill2T>0)?.30:.12));
     }
     if(P.id==='war' && meleeHits>0){
       if(p.warReady){
@@ -2511,6 +2531,92 @@ function trySkill(p){
     for(let i=0;i<10;i++) G.parts.push(mkPart(p.x,p.y-8,P.metal,{sp:rand(90,190),life:rand(.22,.48),size:2,g:24}));
   }
 }
+function trySkill2(p){
+  if(p.skill2Cd>0) return;
+  const P=p.pw, S=P.skill2;
+  if(!S) return;
+  p.skill2Cd = S.cooldown; p.skill2T = S.duration; p.skill2Tick = 0;
+  toast(S.name);
+  flash(P.color, .28);
+  const dmgBase = P.atk.dmg * HERO_BALANCE.damageMul;
+  const live = ()=>G.enemies.filter(e=>!e.dead);
+  if(P.id==='karma'){
+    const dmg = 42 + (p.karma||0)*1.4;
+    G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:190,t:0,dur:.50,color:P.color});
+    G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:120,t:0,dur:.35,color:P.metal});
+    for(const e of live()) if(dist2(e.x,e.y,p.x,p.y-8) < 190*190){
+      damageEnemy(e, dmg, {big:true});
+      if(!e.dead){ e.burn=Math.max(e.burn,5); e.weak=Math.max(e.weak,4); e.slow=Math.max(e.slow,3); }
+    }
+    burst(p.x,p.y-8,36,P.color,220);
+    G.shake=Math.max(G.shake,12);
+  } else if(P.id==='time'){
+    healPlayer(p.hpMax*.35);
+    p.inv = Math.max(p.inv, S.duration);
+    G.freeze = Math.max(G.freeze, 2);
+    G.stopDur = Math.max(G.stopDur, 2); G.stopIntro = Math.max(G.stopIntro, .5);
+    p.skillCd = Math.max(0, p.skillCd - 12);
+    for(const e of live()) e.slow = Math.max(e.slow, 2);
+    burst(p.x,p.y-8,24,P.metal,120);
+  } else if(P.id==='life'){
+    healPlayer(15);
+    G.zones.push({kind:'life', x:p.x, y:p.y, r:110, t:0, dur:S.duration, color:P.color, follow:true});
+    G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:110,t:0,dur:.40,color:P.color});
+  } else if(P.id==='fate'){
+    const list = live();
+    for(let i=0;i<6;i++){
+      const e = list.length ? list[Math.floor(Math.random()*list.length)] : null;
+      const x = e ? e.x : rand(30,G.arena.w-30), y = e ? e.y-8 : rand(30,G.arena.h-30);
+      const roll=Math.random();
+      G.slashes.push({x,y,a:rand(0,TAU),arc:TAU,r:54,t:0,dur:.35,color:P.color});
+      for(const o of live()) if(dist2(o.x,o.y-8,x,y) < 60*60){
+        damageEnemy(o, roll<.3?140:roll<.7?90:55, {});
+        if(roll>=.7 && !o.dead) o.slow=Math.max(o.slow,3);
+      }
+      burst(x,y,12,P.color,150);
+    }
+    G.shake=Math.max(G.shake,10);
+  } else if(P.id==='order'){
+    for(const e of live()){
+      const ea=Math.atan2((e.y-8)-(p.y-8), e.x-p.x);
+      e.mark = 3;
+      orderJudgement(p, e, dmgBase*1.4, ea);
+      if(!e.dead){ e.slow=Math.max(e.slow,3); e.weak=Math.max(e.weak,3); }
+    }
+    G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:260,t:0,dur:.45,color:P.metal});
+    G.shake=Math.max(G.shake,12);
+  } else if(P.id==='space'){
+    const e = nearestEnemy(p.x,p.y-8,560) || live()[0];
+    const cx = e ? e.x : clamp(p.x + p.aimX*180, 20, G.arena.w-20);
+    const cy = e ? e.y-8 : clamp(p.y-8 + p.aimY*180, 20, G.arena.h-20);
+    for(const o of live()) if(dist2(o.x,o.y-8,cx,cy) < 210*210){
+      damageEnemy(o, 90, {big:true, trueDmg:true});
+      if(!o.dead){ o.pull=1.2; o.pullX=cx; o.pullY=cy; o.slow=Math.max(o.slow,2); }
+    }
+    G.slashes.push({x:cx,y:cy,a:0,arc:TAU,r:210,t:0,dur:.50,color:P.color});
+    const dx=p.x-cx, dy=(p.y-8)-cy, d=Math.hypot(dx,dy)||1;
+    p.x=clamp(cx+dx/d*90,14,G.arena.w-14);
+    p.y=clamp(cy+dy/d*90+8,20,G.arena.h-14);
+    resolveBlocks(p); p.inv=Math.max(p.inv,.6);
+    burst(cx,cy,30,P.color,200);
+    G.shake=Math.max(G.shake,10);
+  } else if(P.id==='void'){
+    G.bullets = G.bullets.filter(b=>b.owner!=='e');
+    for(const e of live()) e.weak=Math.max(e.weak, S.duration);
+    G.zones.push({kind:'void', x:p.x, y:p.y, r:110, t:0, dur:1.2, color:P.color, follow:true});
+    flash('#0b0814', .5);
+  } else if(P.id==='war'){
+    p.warReady=true; p.warHits=0;
+    [0,.28,.56].forEach((delay,i)=>{
+      G.ultFx.push({t:0, dur:delay+.7, delay, done:false, fn:(dt,o)=>{
+        if(o.done || o.t < o.delay) return;
+        o.done=true;
+        warShockwave(p, 116+i*38, dmgBase*(2.2+i*.5), 2.2, 240+i*30, .5);
+      }});
+    });
+    G.shake=Math.max(G.shake,14);
+  }
+}
 function tryUlt(p){
   if(p.ult < 100) return;
   p.ult = 0; p.ultT = 1.2;
@@ -2561,7 +2667,7 @@ function tryUlt(p){
     castOrderJudgment(p);
   } else if(id==='u_space'){
     const cx=G.arena.w/2, cy=G.arena.h/2;
-    for(const e of G.enemies) e.pull = 1.1;
+    for(const e of G.enemies){ e.pull = 1.1; e.pullX = null; e.pullY = null; }
     G.zones.push({kind:'space', x:cx, y:cy, r:220, t:0, dur:1.2, color:'#35d6ff'});
     G.ultFx.push({t:0, dur:1.25, fn:(dt,o)=>{
       if(o.done) return; o.done = true;
@@ -2612,6 +2718,22 @@ function updateBattle(dt){
   const combatActive = G.enemies.some(e=>!e.dead && e.hp>0) || (G.phase==='core' && G.core && G.core.hp>0);
   p.atkCd -= dt; p.dashCd -= dt;
   if(combatActive) p.skillCd = Math.max(0, p.skillCd-dt);
+  if(combatActive) p.skill2Cd = Math.max(0, p.skill2Cd-dt);
+  if(p.skill2T>0 && combatActive){
+    p.skill2T = Math.max(0, p.skill2T-dt);
+    if(p.pw.id==='life'){
+      p.hp = Math.min(p.hpMax, p.hp + 6*dt);
+      p.skill2Tick -= dt;
+      if(p.skill2Tick<=0){
+        p.skill2Tick = .4;
+        for(const e of G.enemies){
+          if(e.dead || dist2(e.x,e.y,p.x,p.y) >= 110*110) continue;
+          e.slow = Math.max(e.slow, .8);
+          damageEnemy(e, 14, {});
+        }
+      }
+    }
+  }
   p.inv -= dt; p.hurtFlash -= dt;
   p.swing = Math.max(0, p.swing - dt*4);
   p.ultT = Math.max(0, p.ultT - dt);
@@ -2623,6 +2745,7 @@ function updateBattle(dt){
   let spd = HERO_BALANCE.moveSpeed * (p.pw.moveSpeedMul||1);
   if(p.pw.id==='space' && p.skillT>0) spd *= 1.45;
   if(p.pw.id==='karma' && p.skillT>0) spd *= .92;
+  if(p.pw.id==='war' && p.skill2T>0) spd *= 1.2;
   if(p.dashT>0){
     p.dashT -= dt;
     if(p.pw.id!=='space'){ p.x += p.dashX*330*dt; p.y += p.dashY*330*dt; }
@@ -2664,6 +2787,7 @@ function updateBattle(dt){
   p.hitShake = Math.max(0, (p.hitShake||0) - dt*26);
   if(I.dashReq){ I.dashReq=false; tryDash(p); }
   if(I.skillReq){ I.skillReq=false; trySkill(p); }
+  if(I.skill2Req){ I.skill2Req=false; trySkill2(p); }
   if(I.ultReq){ I.ultReq=false; tryUlt(p); }
   if(I.atk && p.atkCd<=0) doAttack(p);
   healPlayer(HERO_BALANCE.passiveRegen*dt);
@@ -2773,8 +2897,10 @@ function updateEnemies(dt){
     if(e.dead) continue;
     if(e.pull>0){
       e.pull -= dt;
-      const cx=G.arena.w/2, cy=G.arena.h/2, dx=cx-e.x, dy=cy-e.y, d=Math.hypot(dx,dy)||1;
+      const cx=e.pullX!=null?e.pullX:G.arena.w/2, cy=e.pullY!=null?e.pullY:G.arena.h/2,
+            dx=cx-e.x, dy=cy-e.y, d=Math.hypot(dx,dy)||1;
       e.x += dx/d*260*dt; e.y += dy/d*260*dt;
+      if(e.pull<=0){ e.pullX = null; e.pullY = null; }
     }
     if(frozen){ resolveEnemyBlocks(e); continue; }
     const inOrderDomain=G.zones.some(z=>z.kind==='order' && dist2(e.x,e.y,z.x,z.y)<z.r*z.r);
@@ -2932,8 +3058,8 @@ function updateBullets(dt){
         if(segmentCircleHit(oldX,oldY,b.x,b.y,e.x,e.y-8,e.r+b.r+2)){
           b.hit.push(e.id);
           let dmg=b.dmg;
-          if(p.pw.id==='void'){ p.hp=Math.min(p.hpMax, p.hp + dmg*(p.skillT>0?.30:.12)); }
-          if(p.pw.id==='fate' && p.skillT>0){
+          if(p.pw.id==='void'){ p.hp=Math.min(p.hpMax, p.hp + dmg*((p.skillT>0||p.skill2T>0)?.30:.12)); }
+          if(p.pw.id==='fate' && (p.skillT>0||p.skill2T>0)){
             const r=Math.random();
             if(r<.3){ dmg*=2; }
             else if(r<.6){ e.slow=Math.max(e.slow,2.5); }
@@ -3089,13 +3215,20 @@ function updateHud(){
     passive.textContent=`◆ 裁定 ${mk}/3${dom}`;
     passive.style.color=p.pw.metal;
   } else { passive.classList.remove('order-mark'); passive.classList.add('hidden'); }
+  if(p.skill2T>0){
+    const buff = `${p.pw.skill2.name} ${p.skill2T.toFixed(1)}s`;
+    if(passive.classList.contains('hidden')){
+      passive.classList.remove('hidden'); passive.textContent = buff; passive.style.color = p.pw.metal;
+    } else passive.textContent += ` · ${buff}`;
+  }
   $('#hud-collapse').style.width = G.collapse+'%';
   $('#hud-collapse-v').textContent = Math.floor(G.collapse)+'%';
   if(G.phase==='core'){
     const pct = Math.floor((1 - G.core.hp/G.core.max)*100);
     $('#hud-wave').textContent = `修复故障核心 ${pct}%`;
   }
-  const skillBtn=$('#b-skill'), sk=$('#b-skill-cd'), ul=$('#b-ult-cd');
+  const skillBtn=$('#b-skill'), sk=$('#b-skill-cd'),
+        s2Btn=$('#b-skill2'), s2=$('#b-skill2-cd'), ul=$('#b-ult-cd');
   if(p.skillCd>0){
     skillBtn.classList.remove('ready');
     sk.classList.remove('hidden');
@@ -3104,6 +3237,10 @@ function updateHud(){
     sk.classList.add('hidden');
     skillBtn.classList.add('ready');
   }
+  if(p.skill2Cd>0){
+    s2Btn.classList.remove('ready'); s2.classList.remove('hidden');
+    s2.textContent = p.skill2Cd < 1 ? `${Math.max(0,p.skill2Cd).toFixed(2)}` : `${Math.ceil(p.skill2Cd)}`;
+  } else { s2.classList.add('hidden'); s2Btn.classList.add('ready'); }
   if(p.ult<100){ ul.classList.remove('hidden'); ul.textContent = Math.floor(p.ult)+'%'; $('#b-ult').classList.remove('ready'); }
   else { ul.classList.add('hidden'); $('#b-ult').classList.add('ready'); }
 }
@@ -3205,10 +3342,14 @@ function buildPowerCards(){
            <div class="power-fact"><span>基础伤害</span><b>${P.atk.dmg}</b></div>
          </div>
          <div class="power-passive"><span>被动能力</span><b>${P.passive}</b></div>`;
+      const s1=P.skill, s2=P.skill2;
       $('#skill-detail').innerHTML =
-        `<div class="detail-title">专属技能</div>
-         <div class="skill-head"><b class="skill-name">${P.skill.name}</b><span class="skill-key">Q 技能</span></div>
-         <p class="skill-desc">${P.skill.desc}</p>`;
+        `<div class="detail-title">专属技能 · Q 一技能 / R 二技能</div>
+         <div class="skill-head"><b class="skill-name">${s1.name}</b><span class="skill-key">Q · CD ${s1.cooldown}s${s1.duration?` · ${s1.duration}s`:''}</span></div>
+         <p class="skill-desc">${s1.desc}</p>
+         <div class="skill-sep"></div>
+         <div class="skill-head"><b class="skill-name">${s2.name}</b><span class="skill-key">R · CD ${s2.cooldown}s${s2.duration?` · ${s2.duration}s`:''}</span></div>
+         <p class="skill-desc">${s2.desc}</p>`;
       $('#btn-power-next').disabled = false;
     });
     wrap.appendChild(el);
