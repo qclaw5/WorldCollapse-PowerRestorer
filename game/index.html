@@ -391,6 +391,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       </div>
       <div class="bossbar" id="bossbar"><div class="n" id="boss-n">故障守卫</div><div class="bar"><i id="boss-hp"></i></div></div>
       <div class="pad">
+        <div class="pbtn hidden" id="b-guard">格挡<small>F</small></div>
         <div class="pbtn sk" id="b-skill">权能<small id="b-skill-n">Q</small><div class="cd hidden" id="b-skill-cd"></div></div>
         <div class="pbtn sk" id="b-skill2">权能<small id="b-skill2-n">R</small><div class="cd hidden" id="b-skill2-cd"></div></div>
         <div class="pbtn ult" id="b-ult">大招<small id="b-ult-n">E</small><div class="cd hidden" id="b-ult-cd"></div></div>
@@ -1194,6 +1195,7 @@ function setupInput(){
   bindTap('#b-skill', ()=>Input.skillReq=true);
   bindTap('#b-skill2',()=>Input.skill2Req=true);
   bindTap('#b-ult',   ()=>Input.ultReq=true);
+  bindTap('#b-guard', ()=>Input.guardReq=true);
   bindTap('#btn-pause',()=>togglePause());
   addEventListener('blur', clearInput);
   addEventListener('focus', clearInput);
@@ -3954,6 +3956,7 @@ function updateHud(){
     const pct = Math.floor((1 - G.core.hp/G.core.max)*100);
     $('#hud-wave').textContent = `修复故障核心 ${pct}%`;
   }
+  $('#b-guard').classList.toggle('hidden', !skillLearned('k_guard'));
   const skillBtn=$('#b-skill'), sk=$('#b-skill-cd'),
         s2Btn=$('#b-skill2'), s2=$('#b-skill2-cd'), ul=$('#b-ult-cd');
   if(p.skillCd>0){
