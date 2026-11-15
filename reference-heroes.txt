@@ -1,0 +1,918 @@
+/* ============================================================================
+   逐字原文 · wuzayishi/shishijiushishi  main/index.html
+   全部英雄代码 + 全部特效，未做任何改写。方括号内是原文件行号。
+
+   搬入 game/index.html 的情况（2026-11-15）：
+   [2][3][4] 二技能辅助 + SKILL2 全表（7 英雄，含秩序「律令方阵」）+ 帧驱动
+             → 逐字替换本地简化 S2 全家桶，直接运行。
+   [6][7]   fxTier/fxScale/fxHash/groundHalo/powerAmbient + 四个角色特效函数
+             → 逐字插入并挂到 drawHero / drawEnemy 渲染链。
+   [8]      drawMonsterFx（连同 pushMonsterSpawn/pushMonsterDeath）→ 逐字插入，
+             挂到 renderBattle 世界层；补 G.monsterFx 队列与帧驱动。
+   [9]      drawFx → 本地此前已抄入同一段并加了秩序领域增强，且参考版末尾依赖
+             本地没有的 drawKarmaUltScreen()，故保留本地版，不重复定义。
+   [1][5]   POWERS / ULTS 数据表、trySkill / tryUlt 一技能大招入口 → 仅作对照，
+             不逐字替换：本地是 8 英雄（含战意）+ 7 套本地大招，存档/HUD/选人页
+             全依赖本地结构；用户明确「不抄秩序大招」。
+
+   唯一非原文代码是 game/index.html 里标注「本地引擎胶水」的一小段：
+   Settings / minWalkY / mHash / monsterFrame / MSPR / S2=SKILL2 / 帧驱动，
+   以及两处用户硬性约定覆盖：二技能 CD ≤3 秒且不全为 3（原文 9~12 秒）、
+   时间二技能二段时停 1 秒（原文 .7 秒）；战意之权回退 legacySkill2。
+   ============================================================================ */
+
+
+/* ---------- [1] POWERS / ULTS 全部英雄与大招定义 · 原文 946-1022 ---------- */
+const POWERS = [
+  { id:'karma', name:'业报之权', color:'#a86bff', color2:'#5b2bbf', metal:'#d9c7ff',
+    weapon:'业报之镰', tagline:'以因果之镰，收割罪业',
+    atk:{mode:'melee', dmg:26, cd:.40, range:46, arc:1.5, kb:130},
+    passive:'每次击破累积 1 层「业」，每层提升 2% 镰刀伤害（上限 20 层）',
+    skill:{ name:'业力凝冥', cd:60, dur:300,
+      desc:'镰刀伤害 +60% 并附加灼烧；背后凝结死神虚影，使目标虚弱、移动迟缓；画面浮现暗角与紫色滤镜。' },
+    brief:'近战 · 高爆发 · 持续灼烧' },
+  { id:'time', name:'时间之权', color:'#ffcc44', color2:'#a06a10', metal:'#fff0b8',
+    weapon:'金辉怀表', tagline:'时间，是可以被拨动的齿轮',
+    atk:{mode:'ranged', dmg:16, cd:.28, speed:360, r:3, life:1.1},
+    passive:'移动时会留下时之残影，残影消散时对周围造成少量伤害',
+    skill:{ name:'时间暂停', cd:45, dur:10,
+      desc:'冻结全场敌人与弹幕 10 秒，自身行动如常，画面转为金色调。' },
+    brief:'远程 · 控制 · 安全输出' },
+  { id:'life', name:'生命之权', color:'#58e08a', color2:'#1f7a4a', metal:'#c8ffdc',
+    weapon:'生息藤杖', tagline:'一切伤口，终会发芽',
+    atk:{mode:'ranged', dmg:12, cd:.34, speed:300, r:4, life:1.2, spread:2, spreadAng:.16},
+    passive:'每 8 秒自动回复少量生命；周围敌人越多，回复越快',
+    skill:{ name:'生命绽放', cd:40, dur:12,
+      desc:'持续回复生命；荆棘环绕对近身敌人反伤，藤蔓束缚使其减速。' },
+    brief:'远程 · 续航 · 反伤' },
+  { id:'fate', name:'命运之权', color:'#ff6fa8', color2:'#8c2350', metal:'#ffd0e4',
+    weapon:'命运骰盅', tagline:'摇盅、开盖，四骰定生死',
+    atk:{mode:'ranged', dmg:25, cd:.86, dice:4, diceSpread:.30, speed:430, r:3, life:1.15,
+         shakeDur:.42, openDur:.26},
+    passive:'起手伤害偏低；击杀累积命运点数提升倍率；首杀新怪种、或重复击杀满 5 只才抽一张塔罗牌，最多 3 张同时生效',
+    skill:{ name:'命运轮盘', cd:35, dur:15,
+      desc:'轮盘常转：摇盅加快，每次掷骰必定触发随机命运效果，并大幅提升触发威力。' },
+    brief:'远程 · 成长倍率 · 塔罗抽牌' },
+  { id:'order', name:'秩序之权', color:'#cfe4ff', color2:'#4a6a9c', metal:'#ffe9a8',
+    weapon:'律令之剑', tagline:'万物各行其位，各守其序',
+    atk:{mode:'melee', dmg:23, cd:.34, range:48, arc:1.45, kb:110},
+    passive:'连续命中同一目标可叠加「裁定」标记，满层额外造成一次审判伤害',
+    skill:{ name:'秩序领域', cd:40, dur:15,
+      desc:'展开秩序领域：领域内敌人减速 40%、受到的伤害加深 30%，自身攻击附带律令斩击。' },
+    brief:'近战 · 领域 · 稳定增伤' },
+  { id:'space', name:'空间之权', color:'#35d6ff', color2:'#0b6f96', metal:'#c8f6ff',
+    weapon:'裂隙指环', tagline:'两点之间，不必路过中间',
+    atk:{mode:'ranged', dmg:14, cd:.26, speed:420, r:3, life:.9, pierce:1},
+    passive:'冲刺变为瞬移，落点留下裂隙残影',
+    skill:{ name:'空间折叠', cd:25, dur:8,
+      desc:'瞬移距离翻倍，残影在原地爆裂造成范围伤害；期间移动速度提升。' },
+    brief:'远程 · 位移 · 机动' },
+  { id:'void', name:'虚无之权', color:'#b07bff', color2:'#2a1c40', metal:'#e0d4ff',
+    weapon:'虚无之核', tagline:'被抹去的，从未存在过',
+    atk:{mode:'ranged', dmg:18, cd:.38, speed:280, r:5, life:1.4, pierce:99},
+    passive:'攻击无视敌人护甲，并将造成伤害的 12% 转化为生命',
+    skill:{ name:'虚无吞噬', cd:35, dur:10,
+      desc:'持续吞噬周围敌方弹幕；攻击吸血提升至 30%，并削弱敌人防御。' },
+    brief:'远程 · 穿透 · 吸血' }
+];
+const POWER_MAP = Object.fromEntries(POWERS.map(p=>[p.id,p]));
+const ULTS = [
+  { id:'u_karma', name:'万业俱寂', color:'#a86bff', tag:'爆发',
+    desc:'引动众生业力，全场降下业火：对范围内敌人造成巨额伤害，并施加长期灼烧。',
+    effect:'全屏爆发 + 持续灼烧 8 秒' },
+  { id:'u_time',  name:'时之终焉', color:'#ffcc44', tag:'控制',
+    desc:'将时间推至尽头：全场静止 5 秒，随后时之刃对被冻结者集中爆发。',
+    effect:'全屏时停 5 秒 + 终结爆发' },
+  { id:'u_life',  name:'生命树界', color:'#58e08a', tag:'续航',
+    desc:'召唤世界树降临：持续治疗自身，藤蔓横扫全场并束缚所有敌人。',
+    effect:'持续治疗 + 全场束缚 6 秒' },
+  { id:'u_fate',  name:'命运裁决', color:'#ff6fa8', tag:'随机',
+    desc:'掷出命运的天平：随机轰击全场 24 次裁决，每一次的结果都由骰子决定。',
+    effect:'24 次随机天罚轰击' },
+  { id:'u_order', name:'秩序审判', color:'#cfe4ff', tag:'扫荡',
+    desc:'宣告最终审判：数道律令光柱横扫战场，被判定者有罪即死。',
+    effect:'多道光柱扫荡 + 审判伤害' },
+  { id:'u_space', name:'空间坍缩', color:'#35d6ff', tag:'聚怪',
+    desc:'在战场中心撕裂巨隙：吸附全场敌人，随后坍缩成一点引爆。',
+    effect:'吸附聚怪 + 中心大爆' },
+  { id:'u_void',  name:'虚无归零', color:'#b07bff', tag:'抹除',
+    desc:'将一切归零：抹除全场弹幕，对所有敌人造成其最大生命百分比的真实伤害。',
+    effect:'清弹幕 + 最大生命 35% 真伤' }
+];
+const ULT_MAP = Object.fromEntries(ULTS.map(u=>[u.id,u]));
+
+/* ---------- [2] 二技能辅助函数（freshS2 / s2Find / s2PickTarget / s2HitArea / s2Burst / s2Ring / 各结局函数） · 原文 6488-6603 ---------- */
+/* ============================================================
+   二技能（可选）：每个权能一个专属技能，R / 按键区上方圆钮触发
+   业报之权：发射锁链束缚抓取 → 再按一次拉回 → 自动衔接带强击退的普攻
+   ============================================================ */
+function freshS2(){ return { cd:0, phase:'idle', t:0, dur:0, data:null, fx:null }; }
+function s2Def(p){ return SKILL2[p.pw.id]; }
+function s2Find(id){
+  if(id==null) return null;
+  return G.enemies.find(e=>e.id===id && !e.dead && e.hp>0) || null;
+}
+function s2Clear(p,hard){
+  const s=p.s2; if(!s) return;
+  const d=s.data;
+  if(d && d.target!=null){ const e=G.enemies.find(z=>z.id===d.target); if(e&&e.chain) e.chain=null; }
+  s.phase='idle'; s.t=0; s.dur=0; s.data=null; s.fx=null;
+  if(hard){ s.cd=0; p.chainSlam=null; p.s2haste=0; }
+}
+function s2Reset(p){ if(p&&p.s2) s2Clear(p,true); }
+function s2PickTarget(p,maxD){
+  maxD=maxD||250;
+  const q=p.tgt && !p.tgt.dead && p.tgt.hp>0 ? p.tgt : null;
+  if(q && dist2(q.x,q.y,p.x,p.y)<maxD*maxD) return q;
+  let best=null,bd=maxD*maxD;
+  for(const e of G.enemies){
+    if(e.dead||e.hp<=0) continue;
+    const d2=dist2(e.x,e.y,p.x,p.y);
+    if(d2<bd){ bd=d2; best=e; }
+  }
+  return best;
+}
+function s2AimPoint(p,dist){
+  const a=p.aimAng;
+  return { x:clamp(p.x+Math.cos(a)*dist,16,G.arena.w-16),
+           y:clamp(p.y+Math.sin(a)*dist,20,G.arena.h-16) };
+}
+function s2HitArea(x,y,r,dmg,opt){
+  opt=opt||{}; let n=0;
+  for(const e of G.enemies){
+    if(e.dead||e.hp<=0) continue;
+    const rr=r+(e.r||8);
+    if(dist2(e.x,e.y-8,x,y)<rr*rr){ damageEnemy(e,dmg,opt); n++; }
+  }
+  return n;
+}
+function s2Burst(x,y,col,n,sp){
+  for(let i=0;i<(n||10);i++)
+    G.parts.push(mkPart(x+rand(-5,5),y+rand(-5,5),i%3===0?'#ffffff':col,
+      {sp:rand(30,sp||120),life:rand(.2,.5),size:i%4===0?2:1,g:20}));
+}
+function s2Ring(x,y,r,col,dur){ G.slashes.push({x,y,a:0,arc:TAU,r,t:0,dur:dur||.4,color:col}); }
+function s2KarmaEnd(p,s,expired){
+  const d=s.data; if(!d) return;
+  const e=s2Find(d.target);
+  if(e){
+    if(e.chain) e.chain=null;
+    if(d.phase==='bound'){
+      damageEnemy(e,expired?14:12,{noKb:true});
+      s2Burst(e.x,e.y-8,expired?'#8c7aa5':'#c9a6ff',8,80);
+      s2Ring(e.x,e.y-8,14,'#8c7aa5',.3);
+    }
+  }
+  s2Clear(p,false);
+}
+function s2LifeBurst(p,s,manual){
+  const d=s.data; if(!d) return;
+  const e=s2Find(d.target);
+  const x=e?e.x:(d.phase==='self'?p.x:d.x), y=e?e.y-8:(d.phase==='self'?p.y-8:d.y);
+  if(e&&e.chain) e.chain=null;
+  s2HitArea(x,y,manual?74:56,manual?46:26,{kbMul:manual?1.3:1});
+  p.hp=Math.min(p.hpMax,p.hp+(manual?12:6));
+  s2Burst(x,y,'#58e08a',manual?16:9,120);
+  s2Ring(x,y,manual?30:20,'#c8ffdc',.45);
+  flash('#58e08a',.18);
+  s2Clear(p,false);
+}
+function s2FateOpen(p,s,x,y){
+  const d=s.data, face=d.face;
+  d.phase='done'; d.t=0; d.x=x; d.y=y;
+  s2Burst(x,y,'#ff6fa8',18,160); s2Ring(x,y,26,'#ffd0e4',.45);
+  flash('#ff6fa8',.22); G.shake=Math.max(G.shake,4);
+  if(face>=4){
+    s2HitArea(x,y,92,90,{big:true,kbMul:1.2});
+    for(const e of G.enemies) if(!e.dead&&dist2(e.x,e.y-8,x,y)<92*92) e.burn=Math.max(e.burn,3);
+    G.slashes.push({x,y,a:0,arc:TAU,r:52,t:0,dur:.5,color:'#ffe9a8'});
+    toast('大点数 · 裁决爆发 '+face);
+  } else {
+    for(const e of G.enemies){
+      if(e.dead||e.hp<=0) continue;
+      damageEnemy(e,34,{});
+      if(Math.random()<.5) e.slow=Math.max(e.slow,2); else e.burn=Math.max(e.burn,2);
+    }
+    addFatePoints(2);
+    s2Ring(x,y,44,'#ff6fa8',.5);
+    toast('小点数 · 命运累积 '+face);
+  }
+}
+function s2OrderFall(p,s,manual){
+  const d=s.data; if(!d) return;
+  const x=d.x,y=d.y-8;
+  s2HitArea(x,y,92,manual?78:40,{kbMul:manual?1.6:1,big:true});
+  for(let i=0;i<10;i++)
+    G.parts.push(mkPart(x+rand(-7,7),y-42+i*9,i%2?'#ffffff':'#ffe9a8',{sp:10,life:.4,size:2,g:0}));
+  s2Burst(x,y,'#ffe9a8',manual?18:10,140);
+  s2Ring(x,y,manual?34:22,'#ffe9a8',.45);
+  flash('#cfe4ff',.18);
+  s2Clear(p,false);
+}
+function s2VoidBurst(p,s,manual){
+  const d=s.data; if(!d) return;
+  const x=p.x,y=p.y-8,r=manual?110:84;
+  s2HitArea(x,y,r,manual?64:32,{trueDmg:true,kbMul:manual?1.3:1,big:true});
+  s2Burst(x,y,'#b07bff',manual?20:12,150);
+  s2Ring(x,y,manual?44:30,'#e0d4ff',.5);
+  flash('#b07bff',.22);
+  s2Clear(p,false);
+}
+
+/* ---------- [3] SKILL2 全表：7 个英雄，含秩序「律令方阵」 · 原文 6604-6866 ---------- */
+const SKILL2 = {
+  karma:{ name:'业锁·因果链', btn:'业锁', secondHint:'拉回', cd:9, dur:3.1,
+    color:'#c9a6ff', dark:'#5b2bbf',
+    desc:'发射紫色锁链束缚并抓取敌人，期间持续造成抓取伤害；再次点击二技能把目标拉向自己，自动衔接一次伤害提升且带强击退的普攻。',
+    first(p,s){
+      const e=s2PickTarget(p,250);
+      const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.34;
+      const ox=p.x+Math.cos(a)*9, oy=p.y-10+Math.sin(a)*9;
+      s.data={ phase:'shoot',t:0,target:e?e.id:null,ang:a,ox,oy,x:ox,y:oy,
+        reach:e?Math.min(250,Math.hypot(e.x-p.x,(e.y-8)-(p.y-10))):150,acc:0 };
+      s.fx={type:'chain'};
+      flash('#a86bff',.16);
+    },
+    second(p,s){
+      const d=s.data; if(!d||d.phase!=='bound') return;
+      const e=s2Find(d.target); if(!e) return;
+      d.phase='pull'; d.t=0; d.px=e.x; d.py=e.y; d.ang=p.aimAng;
+      flash('#a86bff',.20); G.shake=Math.max(G.shake,3);
+      s2Ring(e.x,e.y-8,18,'#c9a6ff',.3);
+      toast('业锁回收 · 衔接普攻');
+    },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      const e=s2Find(d.target);
+      if(d.phase==='shoot'){
+        d.t+=dt;
+        const k=clamp(d.t/.20,0,1);
+        const tx=e?e.x:d.ox+Math.cos(d.ang)*d.reach;
+        const ty=e?e.y-8:d.oy+Math.sin(d.ang)*d.reach;
+        d.x=lerp(d.ox,tx,k); d.y=lerp(d.oy,ty,k);
+        if(Math.random()<.7) G.parts.push(mkPart(d.x,d.y,'#d9c7ff',{sp:10,life:.18,size:1,g:0}));
+        if(k>=1){
+          if(e){
+            d.phase='bound'; d.t=0; d.acc=0;
+            e.chain={root:true,t:2.6,owner:'karma'};
+            e.slow=Math.max(e.slow,2.6); e.weak=Math.max(e.weak,2.6);
+            damageEnemy(e,24,{noKb:true});
+            s2Ring(e.x,e.y-8,16,'#c9a6ff',.4);
+            s2Burst(e.x,e.y-8,'#c9a6ff',10,90);
+            toast('已束缚 · 再按一次 R 拉回');
+          } else { d.phase='miss'; d.t=0; s.dur=Math.min(s.dur,s.t+.25); }
+        }
+      } else if(d.phase==='bound'){
+        d.t+=dt;
+        if(!e){ s2Clear(p,false); return; }
+        d.x=e.x; d.y=e.y-8;
+        if(e.chain) e.chain.t=Math.max(0,e.chain.t-dt);
+        d.acc+=dt;
+        if(d.acc>=.35){ d.acc=0; damageEnemy(e,6,{tick:true,noKb:true}); }
+        if(d.t>=2.6) s2KarmaEnd(p,s,false);
+      } else if(d.phase==='pull'){
+        d.t+=dt;
+        if(!e){ s2Clear(p,false); return; }
+        const k=clamp(d.t/.22,0,1);
+        const cx=p.x+Math.cos(d.ang)*30, cy=p.y-10+Math.sin(d.ang)*30;
+        e.x=clamp(lerp(d.px,cx,k),14,G.arena.w-14);
+        e.y=clamp(lerp(d.py,cy+8,k),18,G.arena.h-12);
+        d.x=e.x; d.y=e.y-8;
+        if(Math.random()<.8) G.parts.push(mkPart(e.x,e.y-8,'#a86bff',{sp:20,life:.22,size:1,g:0}));
+        if(k>=1){
+          if(e.chain) e.chain=null;
+          e.slow=Math.max(e.slow,.6);
+          damageEnemy(e,18,{noKb:true});
+          s2Burst(e.x,e.y-8,'#c9a6ff',14,130);
+          s2Ring(e.x,e.y-8,22,'#ffe9a8',.35);
+          p.chainSlam={id:e.id,t:0,dur:1.1,used:false};
+          p.aimAng=d.ang; p.atkAng=d.ang; p.aimX=Math.cos(d.ang); p.aimY=Math.sin(d.ang);
+          p.face=p.aimX<0?-1:1; p.turnBoost=.34; p.atkCd=0;
+          doAttack(p);
+          s2Clear(p,false);
+          G.shake=Math.max(G.shake,4);
+        }
+      } else if(d.phase==='miss'){
+        d.t+=dt; if(d.t>=.25) s2Clear(p,false);
+      }
+    },
+    expire(p,s){ s2KarmaEnd(p,s,true); }
+  },
+  time:{ name:'刻印回溯', btn:'刻印', secondHint:'回溯', cd:10, dur:4.5,
+    color:'#ffcc44', dark:'#a06a10',
+    desc:'在原地留下时之刻印并短暂加速；4.5 秒内再按一次二技能回溯到刻印、回复生命，并在起点与终点各爆发一次时之刃。',
+    first(p,s){
+      s.data={x:p.x,y:p.y}; s.fx={type:'mark'};
+      p.s2haste=4.5;
+      s2Ring(p.x,p.y-8,18,'#ffcc44',.45);
+      flash('#ffcc44',.16);
+    },
+    second(p,s){
+      const d=s.data; if(!d) return;
+      const ox=p.x,oy=p.y-8;
+      p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y,minWalkY(p),G.arena.h-14);
+      p.hp=Math.min(p.hpMax,p.hp+18); p.inv=Math.max(p.inv,.35);
+      s2HitArea(ox,oy,70,55,{kbMul:1.1});
+      s2HitArea(p.x,p.y-8,70,55,{kbMul:1.1});
+      G.freeze=Math.max(G.freeze,.7);
+      s2Burst(ox,oy,'#ffcc44',14,140); s2Burst(p.x,p.y-8,'#ffcc44',14,140);
+      s2Ring(ox,oy,26,'#ffcc44',.4); s2Ring(p.x,p.y-8,26,'#fff0b8',.45);
+      flash('#ffcc44',.25); toast('回溯完成');
+      s2Clear(p,false);
+    },
+    tick(){},
+    expire(p,s){
+      const d=s.data; if(!d) return;
+      s2HitArea(d.x,d.y-8,60,30,{});
+      s2Burst(d.x,d.y-8,'#ffcc44',8,90);
+      s2Ring(d.x,d.y-8,20,'#ffcc44',.35);
+    }
+  },
+  life:{ name:'荆棘缚环', btn:'藤环', secondHint:'引爆', cd:10, dur:2.4,
+    color:'#58e08a', dark:'#1f7a4a',
+    desc:'藤环束缚目标并持续吸取生命；再按一次二技能提前引爆，对周围造成伤害与击退并治疗自身。身边没敌人时改为生息脉冲。',
+    first(p,s){
+      const e=s2PickTarget(p,210);
+      if(!e){
+        s.data={phase:'self',t:0,acc:0}; s.fx={type:'zone',r:56,follow:true};
+        p.hp=Math.min(p.hpMax,p.hp+10);
+        s2Ring(p.x,p.y-8,30,'#58e08a',.5);
+        toast('生息脉冲');
+        return;
+      }
+      const a=Math.atan2((e.y-8)-(p.y-10),e.x-p.x);
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.3;
+      e.chain={root:true,t:2.4,owner:'life'};
+      e.slow=Math.max(e.slow,2.4); e.weak=Math.max(e.weak,2.4);
+      damageEnemy(e,18,{noKb:true});
+      s.data={phase:'bound',target:e.id,t:0,acc:0,x:e.x,y:e.y-8};
+      s.fx={type:'chain'};
+      s2Ring(e.x,e.y-8,16,'#58e08a',.4);
+    },
+    second(p,s){ s2LifeBurst(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      if(d.phase==='bound'){
+        const e=s2Find(d.target); if(!e){ s2Clear(p,false); return; }
+        d.x=e.x; d.y=e.y-8;
+        if(e.chain) e.chain.t=Math.max(0,e.chain.t-dt);
+        d.acc+=dt;
+        if(d.acc>=.4){ d.acc=0; damageEnemy(e,5,{tick:true,noKb:true}); p.hp=Math.min(p.hpMax,p.hp+2.5); }
+        if(Math.random()<.25) G.parts.push(mkPart(e.x+rand(-8,8),e.y-8+rand(-8,8),'#58e08a',{sp:8,life:.3,size:1,g:-10}));
+      } else if(d.phase==='self'){
+        d.t+=dt;
+        if(d.t>=.5){ d.t=0; p.hp=Math.min(p.hpMax,p.hp+3); s2HitArea(p.x,p.y-8,56,8,{tick:true,noKb:true}); }
+      }
+    },
+    expire(p,s){ s2LifeBurst(p,s,false); }
+  },
+  fate:{ name:'双面骰', btn:'骰子', secondHint:'开骰', cd:11, dur:2.2,
+    color:'#ff6fa8', dark:'#8c2350',
+    desc:'掷出巨型骰子，飞行途中再按一次二技能可提前开骰；点数 ≥4 触发大范围裁决爆炸，≤3 改为全场轰击并累积命运点数。',
+    first(p,s){
+      const e=s2PickTarget(p,260);
+      const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.3;
+      const ox=p.x+Math.cos(a)*10, oy=p.y-10+Math.sin(a)*10;
+      s.data={ phase:'fly',t:0,ox,oy,x:ox,y:oy,
+        tx:e?e.x:p.x+Math.cos(a)*150, ty:e?e.y-8:p.y-10+Math.sin(a)*150,
+        face:randi(1,6),spin:0 };
+      s.fx={type:'dice'};
+    },
+    second(p,s){ const d=s.data; if(d&&d.phase==='fly') s2FateOpen(p,s,d.x,d.y); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      if(d.phase==='fly'){
+        d.t+=dt; d.spin+=dt*12;
+        const k=clamp(d.t/.32,0,1);
+        d.x=lerp(d.ox,d.tx,k); d.y=lerp(d.oy,d.ty,k);
+        if(k>=1) s2FateOpen(p,s,d.x,d.y);
+      } else if(d.phase==='done'){
+        d.t+=dt; if(d.t>=.6) s2Clear(p,false);
+      }
+    },
+    expire(){}
+  },
+  order:{ name:'律令方阵', btn:'方阵', secondHint:'审判', cd:11, dur:3,
+    color:'#cfe4ff', dark:'#4a6a9c',
+    desc:'在身前布下律令方阵，持续压制并削弱范围内敌人；再按一次二技能提前落下审判光柱，造成伤害与击退。',
+    first(p,s){
+      const e=s2PickTarget(p,220);
+      const q=e ? {x:clamp(e.x,16,G.arena.w-16),y:clamp(e.y,20,G.arena.h-16)} : s2AimPoint(p,92);
+      s.data={x:q.x,y:q.y,acc:0}; s.fx={type:'square'};
+      s2Ring(q.x,q.y-8,24,'#cfe4ff',.4);
+    },
+    second(p,s){ s2OrderFall(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      d.acc+=dt;
+      if(d.acc>=.3){
+        d.acc=0;
+        for(const e of G.enemies){
+          if(e.dead||e.hp<=0) continue;
+          if(dist2(e.x,e.y-8,d.x,d.y-8)<76*76){
+            damageEnemy(e,8,{tick:true,noKb:true});
+            e.weak=Math.max(e.weak,.35); e.slow=Math.max(e.slow,.35);
+          }
+        }
+      }
+    },
+    expire(p,s){ s2OrderFall(p,s,false); }
+  },
+  space:{ name:'折跃标记', btn:'裂隙', secondHint:'折跃', cd:9, dur:4,
+    color:'#35d6ff', dark:'#0b6f96',
+    desc:'向瞄准方向投放裂隙标记；再按一次二技能瞬移到标记，起点与终点各爆一次范围伤害并获得短暂无敌。',
+    first(p,s){
+      const q=s2AimPoint(p,116);
+      s.data={x:q.x,y:q.y}; s.fx={type:'mark'};
+      s2Ring(q.x,q.y-8,20,'#35d6ff',.45);
+    },
+    second(p,s){
+      const d=s.data; if(!d) return;
+      const ox=p.x,oy=p.y-8;
+      p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y,minWalkY(p),G.arena.h-14);
+      p.inv=Math.max(p.inv,.45); p.dashT=0;
+      s2HitArea(ox,oy,64,40,{kbMul:1.1});
+      s2HitArea(p.x,p.y-8,78,55,{kbMul:1.2});
+      for(const e of G.enemies) if(!e.dead&&dist2(e.x,e.y-8,p.x,p.y-8)<78*78) e.slow=Math.max(e.slow,1.2);
+      s2Burst(ox,oy,'#35d6ff',12,150); s2Burst(p.x,p.y-8,'#c8f6ff',16,160);
+      s2Ring(ox,oy,24,'#35d6ff',.4); s2Ring(p.x,p.y-8,30,'#c8f6ff',.5);
+      G.parts.push(mkPart(ox,oy,'#35d6ff',{sp:0,life:.35,size:3,g:0}));
+      flash('#35d6ff',.22); toast('折跃完成');
+      s2Clear(p,false);
+    },
+    tick(){},
+    expire(p,s){
+      const d=s.data; if(!d) return;
+      s2HitArea(d.x,d.y-8,60,30,{});
+      s2Burst(d.x,d.y-8,'#35d6ff',9,100);
+      s2Ring(d.x,d.y-8,20,'#35d6ff',.35);
+    }
+  },
+  void:{ name:'归零脉冲', btn:'归零', secondHint:'引爆', cd:12, dur:3,
+    color:'#b07bff', dark:'#2a1c40',
+    desc:'展开跟随自身的归零场，持续抹除敌方弹幕并造成真实伤害；再按一次二技能提前引爆，造成范围真伤与击退。',
+    first(p,s){
+      s.data={x:p.x,y:p.y-8,r:84,acc:0}; s.fx={type:'zone',follow:true};
+      s2Ring(p.x,p.y-8,30,'#b07bff',.5);
+    },
+    second(p,s){ s2VoidBurst(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      d.x=p.x; d.y=p.y-8;
+      for(let i=G.bullets.length-1;i>=0;i--){
+        const b=G.bullets[i];
+        if(b.owner==='e'&&dist2(b.x,b.y,d.x,d.y)<d.r*d.r){
+          G.parts.push(mkPart(b.x,b.y,'#b07bff',{sp:14,life:.25,size:1,g:0}));
+          G.bullets.splice(i,1);
+        }
+      }
+      d.acc+=dt;
+      if(d.acc>=.4){
+        d.acc=0;
+        for(const e of G.enemies){
+          if(e.dead||e.hp<=0) continue;
+          if(dist2(e.x,e.y-8,d.x,d.y)<d.r*d.r){
+            damageEnemy(e,9,{tick:true,trueDmg:true,noKb:true});
+            e.slow=Math.max(e.slow,.4);
+          }
+        }
+      }
+    },
+    expire(p,s){ s2VoidBurst(p,s,false); }
+  }
+};
+
+/* ---------- [4] 二技能帧驱动 trySkill2 / updateSkill2 · 原文 6867-6892 ---------- */
+function trySkill2(p){
+  if(!Settings.data.skill2On) return;
+  const def=s2Def(p); if(!def) return;
+  const s=p.s2;
+  if(s.phase==='active'){ if(def.second) def.second(p,s); return; }
+  if(s.cd>0) return;
+  s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null; s.fx=null;
+  def.first(p,s);
+  toast(def.name);
+}
+function updateSkill2(dt){
+  const p=G.player; if(!p||!p.s2) return;
+  const s=p.s2;
+  if(s.cd>0) s.cd=Math.max(0,s.cd-dt);
+  if(p.s2haste>0) p.s2haste=Math.max(0,p.s2haste-dt);
+  if(p.chainSlam){
+    p.chainSlam.t+=dt;
+    if(p.chainSlam.t>=p.chainSlam.dur) p.chainSlam=null;
+  }
+  if(s.phase!=='active') return;
+  const def=s2Def(p); if(!def){ s2Clear(p,false); return; }
+  s.t+=dt;
+  if(def.tick) def.tick(p,s,dt);
+  if(s.phase!=='active') return;
+  if(s.t>=s.dur){ if(def.expire) def.expire(p,s); s2Clear(p,false); }
+}
+
+/* ---------- [5] 一技能 / 大招入口 · 原文 6963-6995 ---------- */
+function trySkill(p){
+  if(p.skillCd>0) return;
+  const P=p.pw, S=P.skill;
+  p.skillCd = S.cd; p.skillT = S.dur;
+  if(P.id==='time'){ G.stopDur = S.dur; G.stopIntro = 0.7; }
+  toast(S.name);
+  flash(P.color, .3);
+  if(P.id==='life'){ p.lifeTick = 0; }
+  if(P.id==='order'){ G.zones.push({kind:'order', x:p.x, y:p.y, r:78, t:0, dur:S.dur, color:P.color, follow:true}); }
+  if(P.id==='void'){ G.zones.push({kind:'void', x:p.x, y:p.y, r:70, t:0, dur:S.dur, color:P.color, follow:true}); }
+}
+function tryUlt(p){
+  if(p.ult < 100) return;
+  p.ult = 0; p.ultT = 1.2;
+  const U = ULT_MAP[G.ult];
+  toast('★ ' + U.name);
+  flash(U.color, .55); G.shake = 18;
+  const id = U.id;
+  if(id==='u_karma'){
+    startKarmaUlt(p);
+  } else if(id==='u_time'){
+    G.freeze = Math.max(G.freeze, 5);
+    if(G.stopDur<=0){ G.stopDur = 5; G.stopIntro = 0.7; }
+    for(const e of G.enemies){ damageEnemy(e, 120, {}); e.burn = Math.max(e.burn, 5); }
+    G.ultFx.push({t:0, dur:5, tick:0, fn:(dt)=>{ for(const e of G.enemies) if(!e.dead) e.hp -= 22*dt; }});
+  } else if(id==='u_life'){
+    p.hp = Math.min(p.hpMax, p.hp + 45);
+    for(const e of G.enemies){ e.slow = Math.max(e.slow, 6); damageEnemy(e, 60, {}); }
+    G.ultFx.push({t:0, dur:6, tick:0, fn:(dt)=>{ p.hp = Math.min(p.hpMax, p.hp + 9*dt);
+      for(const e of G.enemies){ e.slow = Math.max(e.slow, .5); e.hp -= 8*dt; } }});
+    G.zones.push({kind:'life', x:p.x, y:p.y, r:120, t:0, dur:6, color:'#58e08a', follow:true});
+  } else if(id==='u_fate'){
+    let n=0;
+
+/* ---------- [6] 特效基础：fxTier / fxScale / fxHash / groundHalo / powerAmbient · 原文 3117-3169 ---------- */
+/* ============================================================
+   角色整体特效层：玩家与怪物共用同一套「贴地光环 / 氛围粒子 / 状态符文」
+   强度可在设置页切换（简洁 / 标准 / 华丽），并随场上敌人数自动降密度保帧率。
+   所有坐标都取自角色当帧的真实锚点，状态特效按精灵实际宽高等比定位，
+   不再用写死的 34px / dy-7，避免大体型怪（Boss 56px）身上特效飘到体外。
+   ============================================================ */
+function fxTier(){ const v=Settings.data.fxTier; return v==null?1:clamp(v|0,0,2); }
+function fxScale(){
+  const n=G.enemies?G.enemies.length:0;
+  return [0.55,1,1.4][fxTier()] * (n>16?.55:n>10?.75:1);
+}
+function fxHash(n,seed){ const q=Math.sin(n*127.1+seed*311.7)*43758.5453; return q-Math.floor(q); }
+/* 贴地椭圆软光 + 透视旋转刻度：y 方向压扁，像铺在地面而不是浮在身上 */
+function groundHalo(x,y,r,c,a,t,seed){
+  const k=fxScale(); if(k<=.01||a<=0) return;
+  pxell(x,y,r*1.28,r*.44,c,a*.10*k);
+  pxell(x,y,r*.86,r*.29,c,a*.11*k);
+  const n=Math.max(3,Math.round(8*k));
+  for(let i=0;i<n;i++){
+    const ph=(t*.33+i/n+seed*.07)%1;
+    const rr=r*(.78+ph*.5), ang=i*TAU/n+t*.26+seed*.9;
+    px(x+Math.cos(ang)*rr, y+Math.sin(ang)*rr*.36, 2,1,c,(1-ph)*a*.5*k);
+  }
+}
+/* 七种权能各自的待机氛围粒子：形态、颜色、运动都不同 */
+function powerAmbient(p,cx,cy,t){
+  const k=fxScale(), id=p.pw.id, col=p.pw.color, metal=p.pw.metal;
+  const n=Math.max(2,Math.round(6*k));
+  for(let i=0;i<n;i++){
+    const h=fxHash(i,p.x*.017+3), ph=(t*(.28+h*.35)+h)%1;
+    const a=t*.5+i*TAU/n+h*2, rr=11+h*13;
+    const x=cx+Math.cos(a)*rr, y=cy-4+Math.sin(a)*rr*.6-ph*14;
+    const al=(1-ph)*.75*k;
+    switch(id){
+      case 'karma':
+        px(x,y,2,2,i%3?'#a86bff':'#d9c7ff',al); if(i%2) px(x,y-2,1,1,'#ff9d4d',al*.8); break;
+      case 'time':
+        px(x,y,2,1,metal,al); px(x+1,y-1,1,1,'#fff0b8',al*.9);
+        if(i%3===0) ring(x,y,3,'#ffd76b',al*.45,1); break;
+      case 'life':
+        px(x,y,2,1,'#58e08a',al); px(x+1,y-1,2,1,'#c8ffdc',al*.8); break;
+      case 'fate':
+        px(x-1,y-1,3,3,'#2a1848',al*.7); px(x,y,1,1,'#ffe9a8',al);
+        px(x-1,y+2,1,1,'#ff6fa8',al*.6); break;
+      case 'order':
+        px(x-2,y,5,1,'#eaf2ff',al*.75); px(x,y-2,1,5,'#cfe4ff',al*.55); break;
+      case 'space':
+        px(x-1,y,3,1,'#35d6ff',al); px(x,y+1,1,2,'#c8f6ff',al*.6); break;
+      default: /* void */
+        px(x,y,2,2,'#e2d2ff',al*.8); px(x+2,y+2,1,1,'#a86bff',al*.5); break;
+    }
+  }
+}
+
+/* ---------- [7] 角色特效：drawHeroAura / drawHeroOverlay / drawEnemyAura / drawEnemyStatus · 原文 3170-3364 ---------- */
+/* 玩家底层：地面光环 + 权能氛围 + 增益符文 + 低血 / 疾风 / 连击能量 */
+function drawHeroAura(p,cx,cy,rx,ry,t){
+  const k=fxScale(), P=p.pw, col=P.color, gy=p.y+1;
+  groundHalo(cx,gy,16,col,.9,t,3);
+  powerAmbient(p,cx,cy,t);
+  /* 药水增益：每个生效中的 buff 一枚独立颜色符文绕身旋转，亮度随剩余时长 */
+  const buffs=((p.buffs)||[]).filter(b=>b.until>t);
+  for(let i=0;i<buffs.length;i++){
+    const b=buffs[i], life=b.dur?clamp((b.until-t)/b.dur,0,1):1;
+    const a=t*.85+i*TAU/Math.max(1,buffs.length), rr=rx+7+i*2.5;
+    const bx=cx+Math.cos(a)*rr, by=cy+Math.sin(a)*rr*.72;
+    const c=b.color||'#ffe9a8';
+    pxo(bx-1,by-1,3,3,c,(.35+.55*life)*k);
+    px(bx,by-2,1,1,'#ffffff',(.3+.5*life)*k);
+    px(bx,by+2,1,1,c,(.25+.4*life)*k);
+    line(bx-3,by,bx+3,by,c,.22*life*k,1);
+  }
+  /* 低血：脚下暗红脉冲，只在角色周围，不占屏幕 */
+  const hpf=clamp(p.hp/(p.hpMax||1),0,1);
+  if(hpf<.3 && p.hp>0){
+    const pulse=.5+.5*Math.sin(t*7), a=(.3-hpf)*2.2*pulse*k;
+    ring(cx,gy,13+Math.sin(t*4)*2,'#ff4d6a',a*.55,1);
+    for(let i=0;i<3;i++){
+      const q=fxHash(i,Math.floor(t*6));
+      px(cx-9+q*18, gy-1-q*7, 1,1,'#ff8fa3',a*.8);
+    }
+  }
+  /* 疾风拳套：脚边青色速度线 */
+  const gale=p.gearFx&&p.gearFx.gale;
+  if(gale){
+    const n=Math.max(2,Math.round(5*k));
+    for(let i=0;i<n;i++){
+      const q=fxHash(i,Math.floor(t*12)), yy=cy-5+q*13;
+      line(cx-rx-6-q*5, yy, cx-rx-1, yy, '#8bd4ff', (.25+q*.35)*k, 1);
+    }
+  }
+  /* 连击高段：只在脚下加一圈极淡能量纹，数字与提示仍全部留在右上角徽标 */
+  const cb=G.combo, cnt=cb?(cb.n||cb.count||0):0;
+  if(cb && cb.state==='combo' && cnt>=5){
+    const a=Math.min(.28,cnt*.012)*k;
+    ring(cx,gy,12+Math.sin(t*5)*1.5,'#ffe9a8',a,1);
+    for(let i=0;i<Math.min(6,Math.round(cnt/3));i++){
+      const ang=t*1.3+i*TAU/6;
+      px(cx+Math.cos(ang)*14,gy+Math.sin(ang)*14*.36,1,1,'#fff4c8',a*1.6);
+    }
+  }
+}
+/* 玩家上层：受击碎裂 + 二技能在途脉冲 + 冲刺尾迹加强 */
+function drawHeroOverlay(p,cx,cy,rx,ry,t){
+  const k=fxScale(), P=p.pw;
+  if((p.hurtFlash||0)>0){
+    const h=clamp(p.hurtFlash/.16,0,1);
+    for(let i=0;i<7;i++){
+      const q=fxHash(i,9), a=q*TAU, d=(1-h)*(12+q*14);
+      px(cx+Math.cos(a)*d, cy+Math.sin(a)*d*.8, 2,1, i%2?'#ffffff':'#ff9db0', h*.75*k);
+    }
+    ring(cx,cy,rx+4+(1-h)*8,'#ffffff',h*.45*k,1);
+  }
+  if(p.s2 && p.s2.phase!=='idle'){
+    const a=t*3, rr=rx+9;
+    for(let i=0;i<3;i++){
+      const ang=a+i*TAU/3;
+      px(cx+Math.cos(ang)*rr, cy+Math.sin(ang)*rr*.8-2, 2,2,'#c9a6ff',.7*k);
+      px(cx+Math.cos(ang)*rr, cy+Math.sin(ang)*rr*.8-2, 1,1,'#ffffff',.6*k);
+    }
+  }
+  if(p.dashT>0){
+    const rot=Math.atan2(p.dashY||0,p.dashX||1);
+    for(let i=1;i<=3;i++){
+      const d=i*6;
+      pxellRot(cx-Math.cos(rot)*d, cy-Math.sin(rot)*d, rx*.9-i*.6, ry*.9-i*.6, rot, P.color2, .16*k);
+    }
+  }
+}
+/* 怪物底层：贴地光环（大小随怪种半径） + 等级宝石徽光 */
+function drawEnemyAura(e,x,y,sp,T,t){
+  const k=fxScale();
+  groundHalo(x,y+1,T.r*1.35,sp.P.g,.72,t,e.id);
+  const lv=e.level||1;
+  if(lv>=5 && !T.dummy){
+    const ph=(t*.8+fxHash(lv,e.id))%1;
+    ring(x,y+1,T.r*1.5+ph*5,'#8bd4ff',(1-ph)*.22*k,1);
+    for(let i=0;i<3;i++){
+      const a=t*1.1+i*TAU/3;
+      px(x+Math.cos(a)*(T.r+5), y+1+Math.sin(a)*(T.r+5)*.35, 1,1,'#bffff4',.55*k);
+    }
+  }
+}
+/* 怪物状态层：全部按精灵真实宽高 sp.w / sp.h 等比定位 */
+function drawEnemyStatus(e,x,y,dx,dy,sp,T,t,frozen){
+  const k=fxScale(), w=sp.w, h=sp.h, foot=dy+h, midX=x;
+  if((e.burn||0)>0){
+    const n=Math.max(3,Math.round(6*k));
+    for(let i=0;i<n;i++){
+      const q=fxHash(i,e.id), fx=x-w*.38+q*w*.76;
+      const ph=(t*1.7+q)%1, fy=foot-h*.12-ph*h*.55;
+      px(fx,fy,2,2,ph<.5?'#ff6b35':'#ffd76b',(1-ph)*.9*k);
+      px(fx,fy-2,1,2,'#ff9d4d',(1-ph)*.7*k);
+      if(i%2===0) px(fx+1,foot-h*.2-((t*22+i*5)%(h*.7)),1,1,'#ff9d4d',.55*k);
+    }
+    pxo(dx-1,foot-2,w+2,1,'#ff6b35',.22*k);
+  }
+  if((e.slow||0)>0){
+    for(let i=0;i<4;i++){
+      const q=fxHash(i,e.id), cx2=x-w*.42+q*w*.84;
+      px(cx2,foot-1,3,1,'#6fa8ff',.75*k);
+      px(cx2+1,foot-4,1,4,'#cfeaff',.6*k);
+      px(cx2-1,foot-2,1,1,'#ffffff',.5*k);
+    }
+    ring(x,y+1,T.r*1.15,'#8fd0ff',.22*k,1);
+    pxo(dx-1,dy+h*.62,w+2,1,'#6fa8ff',.16*k);
+  }
+  if((e.weak||0)>0){
+    const wy=dy-6-Math.min(6,h*.10);
+    px(x-5,wy,2,1,'#c9a6ff',.85*k); px(x+3,wy,2,1,'#c9a6ff',.85*k);
+    px(x-1,wy+2,2,1,'#c9a6ff',.8*k); px(x,wy+4,1,3,'#c9a6ff',.6*k);
+    ring(x,wy+2,6,'#a86bff',.32*k,1);
+    for(let i=0;i<3;i++){
+      const q=fxHash(i,e.id), ph=(t*.9+q)%1;
+      px(x-w*.4+q*w*.8, wy+5+ph*h*.35, 1,1,'#d9c7ff',(1-ph)*.6*k);
+    }
+  }
+  if(frozen){
+    pxo(dx-2,dy-2,w+4,h+3,'#8fd0ff',.11*k);
+    px(dx-2,dy-2,w+4,1,'#cfeaff',.8*k);
+    px(dx-2,dy+h+1,w+4,1,'#8fd0ff',.65*k);
+    px(dx-2,dy-2,1,h+3,'#cfeaff',.6*k);
+    px(dx+w+1,dy-2,1,h+3,'#8fd0ff',.5*k);
+    for(let i=0;i<6;i++){
+      const qx=dx+2+Math.floor(fxHash(i,e.id)*(w-4));
+      const qy=dy+2+Math.floor(fxHash(i+3,e.id)*(h-4));
+      px(qx,qy,1,1,'#ffffff',.6*k); px(qx+1,qy+1,1,1,'#8fd0ff',.5*k);
+    }
+    line(dx+2,dy+2,dx+w-3,dy+h-3,'#cfeaff',.22*k,1);
+    ring(x,y-h*.4,T.r+6,'#cfeaff',.3*k,1);
+  }
+}
+/* 角色特效自检：几何字段有限、三档强度可用、全状态渲染不产生 NaN / 异常 */
+function fxAudit(){
+  const issues=[], C=CanvasRenderingContext2D.prototype;
+  const names=['fillRect','arc','ellipse','drawImage','moveTo','lineTo','strokeRect','rect'];
+  const orig={}, bad=[];
+  for(const n of names){
+    orig[n]=C[n];
+    C[n]=function(...a){
+      for(const v of a) if(typeof v==='number' && !Number.isFinite(v)){ bad.push(n); break; }
+      return orig[n].apply(this,a);
+    };
+  }
+  const geoKeys=['grip','r0','r1','oc','ow','tipOff'];
+  for(const id of Object.keys(WEAPON_GEO)){
+    const g=WEAPON_GEO[id];
+    for(const k of geoKeys) if(g[k]!=null && !Number.isFinite(g[k])) issues.push(id+'.'+k+' 非有限值');
+  }
+  const savedTier=Settings.data.fxTier;
+  const savedEnemies=G.enemies, savedScreen=G.screen, savedPower=G.power, savedUlt=G.ult;
+  const q0=G.player, playerSnap=q0?Object.assign({},q0):null;
+  let rendered=0, thrown=0;
+  try{
+    for(const tier of [0,1,2]){
+      Settings.data.fxTier=tier;
+      if(!Number.isFinite(fxScale())) issues.push('tier '+tier+' 强度系数异常');
+    }
+    Settings.data.fxTier=1;
+    G.screen='battle';
+    const types=Object.keys(ETYPES);
+    G.enemies=[];
+    for(const type of types){
+      let e; try{ e=spawnEnemy(type); }catch(err){ issues.push(type+' 生成失败 '+err.message); continue; }
+      e.spawnT=0; e.x=200; e.y=300; e.aimX=1; e.aimY=0;
+      Object.assign(e,{burn:3,slow:3,weak:3,charging:.4,blinkWarn:.2,blinkIn:.15,level:9,hurt:.06});
+    }
+    for(const P of POWERS){
+      G.power=P.id; G.ult=ULTS[0].id;
+      if(!G.player) break;   /* 尚未进入战斗：只做静态校验，不算异常 */
+      const q=G.player;
+      Object.assign(q,{hurtFlash:.1,hitShake:5,shield:40,shieldFlash:1,skillT:1.5,
+        karma:8,swing:.7,atkAng:.5,aimAng:.5,dashT:0,
+        buffs:[{id:'p_edge',color:'#ff9db0',until:G.time+9,dur:12,fx:{dmg:1.2}},
+               {id:'p_ward',color:'#ffd76b',until:G.time+9,dur:12,fx:{taken:.8}}],
+        gearFx:{gale:true}});
+      bad.length=0;
+      try{ renderBattle(); rendered++; }catch(err){ thrown++; issues.push(P.id+' 渲染异常 '+err.message); }
+      if(bad.length) issues.push(P.id+' 产生 NaN 参数 '+[...new Set(bad)].join(','));
+    }
+  } catch(err){ issues.push('自检异常 '+err.message); }
+  finally{
+    for(const n of names) C[n]=orig[n];
+    Settings.data.fxTier=savedTier; G.enemies=savedEnemies; G.screen=savedScreen;
+    G.power=savedPower; G.ult=savedUlt;
+    if(q0 && playerSnap) for(const k of Object.keys(playerSnap)) q0[k]=playerSnap[k];
+  }
+  return { ok:issues.length===0, issues, powers:POWERS.length, enemyTypes:Object.keys(ETYPES).length,
+    rendered, thrown, tier:['简洁','标准','华丽'][fxTier()], scale:+fxScale().toFixed(2) };
+}
+
+/* ---------- [8] 怪物特效 drawMonsterFx · 原文 4478-4530 ---------- */
+function drawMonsterFx(front){
+  const c=G.ctx, t=G.time, kfx=fxScale();
+  for(const q of G.monsterFx){
+    const k=clamp(q.t/q.life,0,1), sp=q.spr, x=q.x, y=q.y;
+    const base=y-(sp.h-2);
+    if(q.kind==='spawn'){
+      if(!front){
+        ring(x, y, 4+k*22, q.color, (1-k)*.65, 1);
+        ring(x, y, 2+k*13, '#ffffff', (1-k)*.32, 1);
+        /* 地面汇聚光柱：从脚底向上收束，登场更有「组装」感 */
+        groundHalo(x, y+1, 10+k*12, q.color, 1-k, t, q.id);
+        const beam=(1-k)*sp.h*.7;
+        for(let i=0;i<5;i++){
+          const q2=mHash(i,q.id), bx=x-6+Math.round(q2*12);
+          px(bx, y-beam+Math.round(q2*beam*.6), 1,2, q.color, (1-k)*.45*kfx);
+          px(bx, y-1-Math.round(q2*3), 1,1, '#ffffff', (1-k)*.5*kfx);
+        }
+        for(let i=0;i<8;i++){
+          const a=i*TAU/8+t*1.2, r=6+(1-k)*20;
+          px(x+Math.cos(a)*r-1, y+Math.sin(a)*r*.4-1, 2,2,
+             i%2?q.color:'#ffffff', (1-k)*.7);
+        }
+        const S=sp.samples;
+        for(let i=0;i<S.length;i+=2){
+          const s0=S[i], ph=mHash(i,q.id)*.68;
+          const kk=clamp((k-ph)/(.78-ph),0,1);
+          const d0=(1-kk)*24, a=i*2.399;
+          px(x+s0.x+Math.cos(a)*d0, y+s0.y+Math.sin(a)*d0*.6, 1,1,
+             'rgb('+s0.r+','+s0.g+','+s0.b+')', (1-kk)*.6);
+          if(kk>.25 && kk<.9 && i%7===0)
+            line(x+s0.x+Math.cos(a)*(d0+2), y+s0.y+Math.sin(a)*(d0+2)*.6,
+                 x+s0.x+Math.cos(a)*d0, y+s0.y+Math.sin(a)*d0*.6,
+                 q.color, (1-kk)*.3*kfx, 1);
+        }
+      } else {
+        const cut=Math.floor(sp.h*(1-k)), a=(1-k)*.55;
+        px(x-Math.floor(sp.w/2)-3, base+cut-1, 1,3, q.color, a);
+        px(x+Math.floor(sp.w/2)+2, base+cut-1, 1,3, q.color, a);
+        /* 重组扫描线的横向拖尾 */
+        px(x-Math.floor(sp.w/2)-6, base+cut-1, 3,1, q.color, a*.6*kfx);
+        px(x+Math.floor(sp.w/2)+4, base+cut-1, 3,1, '#ffffff', a*.5*kfx);
+        for(let i=0;i<4;i++){
+          const q2=mHash(i,Math.floor(t*20)+q.id);
+          px(x-Math.floor(sp.w/2)-2+q2*sp.w, base+cut-2-q2*7, 2,1, '#ffffff', a*.6*kfx);
+        }
+      }
+    } else {
+      if(!front){
+        ring(x, y-8, 6+k*26, q.color, (1-k)*.55, 1);
+        ring(x, y-8, 3+k*14, '#ffffff', (1-k)*.3, 1);
+        groundHalo(x, y+1, 12+k*18, q.color, (1-k)*.9, t, q.id);
+        if(k<.35){
+          const a=(1-k/.35);
+
+/* ---------- [9] 全屏特效 drawFx · 原文 5188-5247 ---------- */
+function drawFx(){
+  const c=G.ctx, v=G.view, p=G.player;
+  if(p && p.pw.id==='karma' && p.skillT>0){
+    const g = c.createRadialGradient(v.w/2,v.h/2,Math.min(v.w,v.h)*.22, v.w/2,v.h/2, Math.max(v.w,v.h)*.72);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(24,4,40,.72)');
+    c.fillStyle=g; c.fillRect(0,0,v.w,v.h);
+    c.globalCompositeOperation='overlay'; c.fillStyle='rgba(150,80,255,.16)'; c.fillRect(0,0,v.w,v.h);
+    c.globalCompositeOperation='source-over';
+  }
+  if(p && p.pw.id==='time' && p.skillT>0){
+    c.globalCompositeOperation='overlay'; c.fillStyle='rgba(255,200,60,.14)'; c.fillRect(0,0,v.w,v.h);
+    c.globalCompositeOperation='source-over';
+    c.fillStyle='rgba(255,220,120,.05)';
+    for(let y=(G.time*40)%6; y<v.h; y+=6) c.fillRect(0,Math.round(y),v.w,1);
+  }
+  for(const z of G.zones){
+    const a = z.t/z.dur;
+    ring(z.x, z.y, z.r, z.color, .18+.10*Math.sin(G.time*4), 2);
+    ring(z.x, z.y, z.r-3, z.color, .10, 1);
+    pxc(z.x, z.y, z.r, z.color, .05);
+    for(let i=0;i<8;i++){
+      const ang = G.time*0.7 + i*TAU/8;
+      px(z.x+Math.round(Math.cos(ang)*z.r), z.y+Math.round(Math.sin(ang)*z.r), 2, 2, z.color, .55+.25*Math.sin(G.time*5+i));
+    }
+  }
+  let stopT = 0;
+  if(p && p.pw.id==='time' && p.skillT>0) stopT = Math.max(stopT, p.skillT);
+  if(G.freeze>0) stopT = Math.max(stopT, G.freeze);
+  if(stopT>0){
+    if(stopT > G.stopDur) G.stopDur = stopT;
+    const dur = G.stopDur>0 ? G.stopDur : stopT;
+    const frac = clamp(stopT/dur, 0, 1);
+    const cx = v.w/2, cy = v.h*0.46;
+    const R  = clamp(Math.min(v.w,v.h)*0.26, 18, 46);
+    const urgent = stopT<=3;
+    const blink  = urgent ? (0.55+0.45*Math.sin(G.time*14)) : 1;
+    const col    = urgent ? '#ff5c7a' : '#ffd76b';
+    const dim    = (i)=> (i<=frac ? 1 : .32);
+    ring(cx, cy, R, '#0b0a14', .55, 3);
+    ring(cx, cy, R+2, col, .16*blink, 1);
+    for(let i=0;i<12;i++){
+      const a = i*TAU/12 - Math.PI/2, big=(i%3===0);
+      const r0 = R-(big?6:4), r1 = R+(big?2:1);
+      line(cx+Math.cos(a)*r0, cy+Math.sin(a)*r0, cx+Math.cos(a)*r1, cy+Math.sin(a)*r1,
+           col, (urgent?.95:.6)*dim(i/12)*blink, big?2:1);
+    }
+    c.strokeStyle=col; c.lineWidth=3; c.globalAlpha=blink;
+    c.beginPath(); c.arc(cx, cy, R-4, -Math.PI/2, -Math.PI/2 + TAU*frac); c.stroke();
+    c.globalAlpha=blink*.45; c.lineWidth=1;
+    c.beginPath(); c.arc(cx, cy, R-7, -Math.PI/2, -Math.PI/2 + TAU*frac); c.stroke();
+    c.globalAlpha=1;
+    const pa = -Math.PI/2 + TAU*(1-frac);
+    line(cx, cy, cx+Math.cos(pa)*(R-8), cy+Math.sin(pa)*(R-8), '#ffffff', .85*blink, 1);
+    pxc(cx, cy, 2, col, .95*blink);
+    const sc = urgent ? 3 : 2;
+    const txt = String(Math.ceil(stopT));
+    pxText(txt, Math.round(cx - pxTextW(txt,sc)/2), Math.round(Math.max(3, cy - R - sc*6 - 2)), sc,
+           urgent?'#ff8fa3':'#ffe9a8', blink);
+    pxText('TIME STOP', Math.round(cx - pxTextW('TIME STOP',1)/2), Math.round(Math.min(v.h-6, cy + R + 5)), 1, col, .8*blink);
+    for(let i=0;i<4;i++){
+

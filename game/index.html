@@ -1167,7 +1167,7 @@ const G = {
   time:0, last:0,
   cv:null, ctx:null, view:{w:320,h:180}, scale:3,
   cam:{x:0,y:0}, arena:{w:720,h:520},
-  player:null, enemies:[], bullets:[], parts:[], slashes:[], pickups:[], zones:[], pathFields:{},
+  player:null, enemies:[], bullets:[], parts:[], slashes:[], pickups:[], zones:[], monsterFx:[], pathFields:{},
   wave:0, waveTimer:0, phase:'fight',
   part:0, partCount:1, waveInPart:0, map:null, key:null, transit:null,
   core:{x:0,y:0,hp:0,max:100,r:16, appear:0},
@@ -1614,6 +1614,312 @@ function bakeWeapons(){
     }
   }
 }
+/* ============================================================
+   角色整体特效层：玩家与怪物共用同一套「贴地光环 / 氛围粒子 / 状态符文」
+   强度可在设置页切换（简洁 / 标准 / 华丽），并随场上敌人数自动降密度保帧率。
+   所有坐标都取自角色当帧的真实锚点，状态特效按精灵实际宽高等比定位，
+   不再用写死的 34px / dy-7，避免大体型怪（Boss 56px）身上特效飘到体外。
+   ============================================================ */
+function fxTier(){ const v=Settings.data.fxTier; return v==null?1:clamp(v|0,0,2); }
+function fxScale(){
+  const n=G.enemies?G.enemies.length:0;
+  return [0.55,1,1.4][fxTier()] * (n>16?.55:n>10?.75:1);
+}
+function fxHash(n,seed){ const q=Math.sin(n*127.1+seed*311.7)*43758.5453; return q-Math.floor(q); }
+/* 贴地椭圆软光 + 透视旋转刻度：y 方向压扁，像铺在地面而不是浮在身上 */
+function groundHalo(x,y,r,c,a,t,seed){
+  const k=fxScale(); if(k<=.01||a<=0) return;
+  pxell(x,y,r*1.28,r*.44,c,a*.10*k);
+  pxell(x,y,r*.86,r*.29,c,a*.11*k);
+  const n=Math.max(3,Math.round(8*k));
+  for(let i=0;i<n;i++){
+    const ph=(t*.33+i/n+seed*.07)%1;
+    const rr=r*(.78+ph*.5), ang=i*TAU/n+t*.26+seed*.9;
+    px(x+Math.cos(ang)*rr, y+Math.sin(ang)*rr*.36, 2,1,c,(1-ph)*a*.5*k);
+  }
+}
+/* 七种权能各自的待机氛围粒子：形态、颜色、运动都不同 */
+function powerAmbient(p,cx,cy,t){
+  const k=fxScale(), id=p.pw.id, col=p.pw.color, metal=p.pw.metal;
+  const n=Math.max(2,Math.round(6*k));
+  for(let i=0;i<n;i++){
+    const h=fxHash(i,p.x*.017+3), ph=(t*(.28+h*.35)+h)%1;
+    const a=t*.5+i*TAU/n+h*2, rr=11+h*13;
+    const x=cx+Math.cos(a)*rr, y=cy-4+Math.sin(a)*rr*.6-ph*14;
+    const al=(1-ph)*.75*k;
+    switch(id){
+      case 'karma':
+        px(x,y,2,2,i%3?'#a86bff':'#d9c7ff',al); if(i%2) px(x,y-2,1,1,'#ff9d4d',al*.8); break;
+      case 'time':
+        px(x,y,2,1,metal,al); px(x+1,y-1,1,1,'#fff0b8',al*.9);
+        if(i%3===0) ring(x,y,3,'#ffd76b',al*.45,1); break;
+      case 'life':
+        px(x,y,2,1,'#58e08a',al); px(x+1,y-1,2,1,'#c8ffdc',al*.8); break;
+      case 'fate':
+        px(x-1,y-1,3,3,'#2a1848',al*.7); px(x,y,1,1,'#ffe9a8',al);
+        px(x-1,y+2,1,1,'#ff6fa8',al*.6); break;
+      case 'order':
+        px(x-2,y,5,1,'#eaf2ff',al*.75); px(x,y-2,1,5,'#cfe4ff',al*.55); break;
+      case 'space':
+        px(x-1,y,3,1,'#35d6ff',al); px(x,y+1,1,2,'#c8f6ff',al*.6); break;
+      default: /* void */
+        px(x,y,2,2,'#e2d2ff',al*.8); px(x+2,y+2,1,1,'#a86bff',al*.5); break;
+    }
+  }
+}
+/* 玩家底层：地面光环 + 权能氛围 + 增益符文 + 低血 / 疾风 / 连击能量 */
+function drawHeroAura(p,cx,cy,rx,ry,t){
+  const k=fxScale(), P=p.pw, col=P.color, gy=p.y+1;
+  groundHalo(cx,gy,16,col,.9,t,3);
+  powerAmbient(p,cx,cy,t);
+  /* 药水增益：每个生效中的 buff 一枚独立颜色符文绕身旋转，亮度随剩余时长 */
+  const buffs=((p.buffs)||[]).filter(b=>b.until>t);
+  for(let i=0;i<buffs.length;i++){
+    const b=buffs[i], life=b.dur?clamp((b.until-t)/b.dur,0,1):1;
+    const a=t*.85+i*TAU/Math.max(1,buffs.length), rr=rx+7+i*2.5;
+    const bx=cx+Math.cos(a)*rr, by=cy+Math.sin(a)*rr*.72;
+    const c=b.color||'#ffe9a8';
+    pxo(bx-1,by-1,3,3,c,(.35+.55*life)*k);
+    px(bx,by-2,1,1,'#ffffff',(.3+.5*life)*k);
+    px(bx,by+2,1,1,c,(.25+.4*life)*k);
+    line(bx-3,by,bx+3,by,c,.22*life*k,1);
+  }
+  /* 低血：脚下暗红脉冲，只在角色周围，不占屏幕 */
+  const hpf=clamp(p.hp/(p.hpMax||1),0,1);
+  if(hpf<.3 && p.hp>0){
+    const pulse=.5+.5*Math.sin(t*7), a=(.3-hpf)*2.2*pulse*k;
+    ring(cx,gy,13+Math.sin(t*4)*2,'#ff4d6a',a*.55,1);
+    for(let i=0;i<3;i++){
+      const q=fxHash(i,Math.floor(t*6));
+      px(cx-9+q*18, gy-1-q*7, 1,1,'#ff8fa3',a*.8);
+    }
+  }
+  /* 疾风拳套：脚边青色速度线 */
+  const gale=p.gearFx&&p.gearFx.gale;
+  if(gale){
+    const n=Math.max(2,Math.round(5*k));
+    for(let i=0;i<n;i++){
+      const q=fxHash(i,Math.floor(t*12)), yy=cy-5+q*13;
+      line(cx-rx-6-q*5, yy, cx-rx-1, yy, '#8bd4ff', (.25+q*.35)*k, 1);
+    }
+  }
+  /* 连击高段：只在脚下加一圈极淡能量纹，数字与提示仍全部留在右上角徽标 */
+  const cb=G.combo, cnt=cb?(cb.n||cb.count||0):0;
+  if(cb && cb.state==='combo' && cnt>=5){
+    const a=Math.min(.28,cnt*.012)*k;
+    ring(cx,gy,12+Math.sin(t*5)*1.5,'#ffe9a8',a,1);
+    for(let i=0;i<Math.min(6,Math.round(cnt/3));i++){
+      const ang=t*1.3+i*TAU/6;
+      px(cx+Math.cos(ang)*14,gy+Math.sin(ang)*14*.36,1,1,'#fff4c8',a*1.6);
+    }
+  }
+}
+/* 玩家上层：受击碎裂 + 二技能在途脉冲 + 冲刺尾迹加强 */
+function drawHeroOverlay(p,cx,cy,rx,ry,t){
+  const k=fxScale(), P=p.pw;
+  if((p.hurtFlash||0)>0){
+    const h=clamp(p.hurtFlash/.16,0,1);
+    for(let i=0;i<7;i++){
+      const q=fxHash(i,9), a=q*TAU, d=(1-h)*(12+q*14);
+      px(cx+Math.cos(a)*d, cy+Math.sin(a)*d*.8, 2,1, i%2?'#ffffff':'#ff9db0', h*.75*k);
+    }
+    ring(cx,cy,rx+4+(1-h)*8,'#ffffff',h*.45*k,1);
+  }
+  if(p.s2 && p.s2.phase!=='idle'){
+    const a=t*3, rr=rx+9;
+    for(let i=0;i<3;i++){
+      const ang=a+i*TAU/3;
+      px(cx+Math.cos(ang)*rr, cy+Math.sin(ang)*rr*.8-2, 2,2,'#c9a6ff',.7*k);
+      px(cx+Math.cos(ang)*rr, cy+Math.sin(ang)*rr*.8-2, 1,1,'#ffffff',.6*k);
+    }
+  }
+  if(p.dashT>0){
+    const rot=Math.atan2(p.dashY||0,p.dashX||1);
+    for(let i=1;i<=3;i++){
+      const d=i*6;
+      pxellRot(cx-Math.cos(rot)*d, cy-Math.sin(rot)*d, rx*.9-i*.6, ry*.9-i*.6, rot, P.color2, .16*k);
+    }
+  }
+}
+/* 怪物底层：贴地光环（大小随怪种半径） + 等级宝石徽光 */
+function drawEnemyAura(e,x,y,sp,T,t){
+  const k=fxScale();
+  groundHalo(x,y+1,T.r*1.35,sp.P.g,.72,t,e.id);
+  const lv=e.level||1;
+  if(lv>=5 && !T.dummy){
+    const ph=(t*.8+fxHash(lv,e.id))%1;
+    ring(x,y+1,T.r*1.5+ph*5,'#8bd4ff',(1-ph)*.22*k,1);
+    for(let i=0;i<3;i++){
+      const a=t*1.1+i*TAU/3;
+      px(x+Math.cos(a)*(T.r+5), y+1+Math.sin(a)*(T.r+5)*.35, 1,1,'#bffff4',.55*k);
+    }
+  }
+}
+/* 怪物状态层：全部按精灵真实宽高 sp.w / sp.h 等比定位 */
+function drawEnemyStatus(e,x,y,dx,dy,sp,T,t,frozen){
+  const k=fxScale(), w=sp.w, h=sp.h, foot=dy+h, midX=x;
+  if((e.burn||0)>0){
+    const n=Math.max(3,Math.round(6*k));
+    for(let i=0;i<n;i++){
+      const q=fxHash(i,e.id), fx=x-w*.38+q*w*.76;
+      const ph=(t*1.7+q)%1, fy=foot-h*.12-ph*h*.55;
+      px(fx,fy,2,2,ph<.5?'#ff6b35':'#ffd76b',(1-ph)*.9*k);
+      px(fx,fy-2,1,2,'#ff9d4d',(1-ph)*.7*k);
+      if(i%2===0) px(fx+1,foot-h*.2-((t*22+i*5)%(h*.7)),1,1,'#ff9d4d',.55*k);
+    }
+    pxo(dx-1,foot-2,w+2,1,'#ff6b35',.22*k);
+  }
+  if((e.slow||0)>0){
+    for(let i=0;i<4;i++){
+      const q=fxHash(i,e.id), cx2=x-w*.42+q*w*.84;
+      px(cx2,foot-1,3,1,'#6fa8ff',.75*k);
+      px(cx2+1,foot-4,1,4,'#cfeaff',.6*k);
+      px(cx2-1,foot-2,1,1,'#ffffff',.5*k);
+    }
+    ring(x,y+1,T.r*1.15,'#8fd0ff',.22*k,1);
+    pxo(dx-1,dy+h*.62,w+2,1,'#6fa8ff',.16*k);
+  }
+  if((e.weak||0)>0){
+    const wy=dy-6-Math.min(6,h*.10);
+    px(x-5,wy,2,1,'#c9a6ff',.85*k); px(x+3,wy,2,1,'#c9a6ff',.85*k);
+    px(x-1,wy+2,2,1,'#c9a6ff',.8*k); px(x,wy+4,1,3,'#c9a6ff',.6*k);
+    ring(x,wy+2,6,'#a86bff',.32*k,1);
+    for(let i=0;i<3;i++){
+      const q=fxHash(i,e.id), ph=(t*.9+q)%1;
+      px(x-w*.4+q*w*.8, wy+5+ph*h*.35, 1,1,'#d9c7ff',(1-ph)*.6*k);
+    }
+  }
+  if(frozen){
+    pxo(dx-2,dy-2,w+4,h+3,'#8fd0ff',.11*k);
+    px(dx-2,dy-2,w+4,1,'#cfeaff',.8*k);
+    px(dx-2,dy+h+1,w+4,1,'#8fd0ff',.65*k);
+    px(dx-2,dy-2,1,h+3,'#cfeaff',.6*k);
+    px(dx+w+1,dy-2,1,h+3,'#8fd0ff',.5*k);
+    for(let i=0;i<6;i++){
+      const qx=dx+2+Math.floor(fxHash(i,e.id)*(w-4));
+      const qy=dy+2+Math.floor(fxHash(i+3,e.id)*(h-4));
+      px(qx,qy,1,1,'#ffffff',.6*k); px(qx+1,qy+1,1,1,'#8fd0ff',.5*k);
+    }
+    line(dx+2,dy+2,dx+w-3,dy+h-3,'#cfeaff',.22*k,1);
+    ring(x,y-h*.4,T.r+6,'#cfeaff',.3*k,1);
+  }
+}
+function mHash(a,b){ const q=Math.sin(a*127.1+b*311.7)*43758.5453; return q-Math.floor(q); }
+/* 登场：从脚下逐行重组 + 数据碎片向核心汇聚 */
+function pushMonsterSpawn(e,T){
+  const sp=MSPR[e.type]; if(!sp) return;
+  G.monsterFx.push({kind:'spawn', x:e.x, y:e.y, t:0, life:.48, spr:sp, color:T.color, id:e.id});
+  if(G.monsterFx.length>24) G.monsterFx.shift();
+  const S=sp.samples;
+  for(let i=0;i<Math.min(24,S.length);i+=2){
+    const a=rand(0,TAU), r=rand(14,30);
+    G.parts.push({x:e.x+Math.cos(a)*r, y:e.y-8+Math.sin(a)*r*.6,
+      vx:-Math.cos(a)*r*2.0, vy:-Math.sin(a)*r*1.2, t:0, life:rand(.26,.50),
+      size:1, g:-10, color:'rgb('+S[i].r+','+S[i].g+','+S[i].b+')'});
+  }
+}
+/* 死亡：保留精灵剪影一瞬，再按真实像素颜色逐点崩解飞散 */
+function pushMonsterDeath(e,T){
+  const sp=MSPR[e.type]; if(!sp) return;
+  G.monsterFx.push({kind:'death', x:e.x, y:e.y, t:0, life:T.boss?.85:.54,
+    spr:sp, color:T.color, id:e.id, boss:!!T.boss, fr:monsterFrame(e,G.time)});
+  if(G.monsterFx.length>24) G.monsterFx.shift();
+  const n=T.boss?26:10;
+  for(let i=0;i<n;i++)
+    G.parts.push(mkPart(e.x, e.y-8, i%3?'#ffffff':T.color,
+      {sp:rand(40,130), life:rand(.25,.55), size:i%4===0?2:1, g:30}));
+}
+function drawMonsterFx(front){
+  const c=G.ctx, t=G.time, kfx=fxScale();
+  for(const q of G.monsterFx){
+    const k=clamp(q.t/q.life,0,1), sp=q.spr, x=q.x, y=q.y;
+    const base=y-(sp.h-2);
+    if(q.kind==='spawn'){
+      if(!front){
+        ring(x, y, 4+k*22, q.color, (1-k)*.65, 1);
+        ring(x, y, 2+k*13, '#ffffff', (1-k)*.32, 1);
+        /* 地面汇聚光柱：从脚底向上收束，登场更有「组装」感 */
+        groundHalo(x, y+1, 10+k*12, q.color, 1-k, t, q.id);
+        const beam=(1-k)*sp.h*.7;
+        for(let i=0;i<5;i++){
+          const q2=mHash(i,q.id), bx=x-6+Math.round(q2*12);
+          px(bx, y-beam+Math.round(q2*beam*.6), 1,2, q.color, (1-k)*.45*kfx);
+          px(bx, y-1-Math.round(q2*3), 1,1, '#ffffff', (1-k)*.5*kfx);
+        }
+        for(let i=0;i<8;i++){
+          const a=i*TAU/8+t*1.2, r=6+(1-k)*20;
+          px(x+Math.cos(a)*r-1, y+Math.sin(a)*r*.4-1, 2,2,
+             i%2?q.color:'#ffffff', (1-k)*.7);
+        }
+        const S=sp.samples;
+        for(let i=0;i<S.length;i+=2){
+          const s0=S[i], ph=mHash(i,q.id)*.68;
+          const kk=clamp((k-ph)/(.78-ph),0,1);
+          const d0=(1-kk)*24, a=i*2.399;
+          px(x+s0.x+Math.cos(a)*d0, y+s0.y+Math.sin(a)*d0*.6, 1,1,
+             'rgb('+s0.r+','+s0.g+','+s0.b+')', (1-kk)*.6);
+          if(kk>.25 && kk<.9 && i%7===0)
+            line(x+s0.x+Math.cos(a)*(d0+2), y+s0.y+Math.sin(a)*(d0+2)*.6,
+                 x+s0.x+Math.cos(a)*d0, y+s0.y+Math.sin(a)*d0*.6,
+                 q.color, (1-kk)*.3*kfx, 1);
+        }
+      } else {
+        const cut=Math.floor(sp.h*(1-k)), a=(1-k)*.55;
+        px(x-Math.floor(sp.w/2)-3, base+cut-1, 1,3, q.color, a);
+        px(x+Math.floor(sp.w/2)+2, base+cut-1, 1,3, q.color, a);
+        /* 重组扫描线的横向拖尾 */
+        px(x-Math.floor(sp.w/2)-6, base+cut-1, 3,1, q.color, a*.6*kfx);
+        px(x+Math.floor(sp.w/2)+4, base+cut-1, 3,1, '#ffffff', a*.5*kfx);
+        for(let i=0;i<4;i++){
+          const q2=mHash(i,Math.floor(t*20)+q.id);
+          px(x-Math.floor(sp.w/2)-2+q2*sp.w, base+cut-2-q2*7, 2,1, '#ffffff', a*.6*kfx);
+        }
+      }
+    } else {
+      if(!front){
+        ring(x, y-8, 6+k*26, q.color, (1-k)*.55, 1);
+        ring(x, y-8, 3+k*14, '#ffffff', (1-k)*.3, 1);
+        groundHalo(x, y+1, 12+k*18, q.color, (1-k)*.9, t, q.id);
+        if(k<.35){
+          const a=(1-k/.35);
+          for(let i=0;i<8;i++){
+            const ang=i*TAU/8+t*.8, d=14+(1-k)*22;
+            line(x+Math.cos(ang)*8, y-8+Math.sin(ang)*8*.5,
+                 x+Math.cos(ang)*d, y-8+Math.sin(ang)*d*.5,
+                 i%2?q.color:'#ffffff', a*.4*kfx, 1);
+          }
+        }
+      } else {
+        if(k<.24){
+          c.globalAlpha=(1-k/.24)*.9;
+          c.drawImage(sp.whites[q.fr]||sp.whites[0], x-Math.floor(sp.w/2), base, sp.w, sp.h);
+          c.globalAlpha=1;
+        }
+        const S=sp.samples;
+        for(let i=0;i<S.length;i++){
+          const s0=S[i];
+          const delay=.05+(s0.y+sp.h)/sp.h*.22+mHash(i,q.id)*.17;
+          const kk=clamp((q.t-delay)/(q.life-delay),0,1);
+          if(kk<=0) continue;
+          const a=i*2.399+q.id*.3, d0=kk*(18+mHash(i+9,q.id)*46);
+          const qx=x+s0.x+Math.cos(a)*d0;
+          const qy=y+s0.y+Math.sin(a)*d0*.65+kk*kk*14;
+          px(qx,qy, q.boss?2:1, q.boss?2:1,
+             'rgb('+s0.r+','+s0.g+','+s0.b+')', 1-kk);
+          if(kk<.35 && i%11===0) px(qx,qy,2,2,'#ffffff',(1-kk)*.45);
+        }
+        if(k<.45){
+          const a=(1-k/.45);
+          for(let i=0;i<7;i++){
+            const hh=mHash(i,q.id);
+            px(x-20+hh*40, base+Math.floor(hh*sp.h)-k*8,
+               2+Math.floor(hh*4),1,'#ffffff',a*.35);
+          }
+        }
+      }
+    }
+  }
+}
 function drawHero(p){
   const t=G.time, P=p.pw, col=P.color, col2=P.color2, metal=P.metal;
   const spd = Math.hypot(p.vx,p.vy);
@@ -1636,6 +1942,7 @@ function drawHero(p){
   const n2 = hurt?'#ffffff':col;
   const hi = hurt?'#ffffff':metal;
   shadow(p.x, p.y+1, Math.max(3, rx*(1-hop/11)), 3);
+  drawHeroAura(p, cx, cy, rx, ry, t);
   if(p.trail) for(const q of p.trail){
     const a=(1-q.t/q.life);
     if(q.rot) pxellRot(q.x,q.y,q.rx,q.ry,q.rot, m, a*.40);
@@ -1963,6 +2270,7 @@ function drawWeapon(p, bx, by){
     px(hx-1, hy-1, 2, 2, P.metal, .30+.22*Math.sin(t*5));
   }
   if(!melee && p.swing>0) drawCastFlash(p, hx, hy, base, wk);
+  drawHeroOverlay(p, cx, cy, rx, ry, t);
 }
 function drawEnemy(e){
   const T = ETYPES[e.type], t=G.time;
@@ -1979,6 +2287,8 @@ function drawEnemy(e){
   const body = hurt ? '#ffffff' : T.color;
   const dark = hurt ? '#ffdddd' : T.dark;
   shadow(e.x, e.y+2, T.r*.9, T.r*.4);
+  const _fxsp={w:Math.round(T.r*2),h:Math.round(T.r*2),P:{g:T.color},samples:[],whites:[_blankSpr]};
+  drawEnemyAura(e,x,y,_fxsp,T,t);
   const bob = e.type==='glitch' ? Math.round(Math.sin(t*14+e.id)*1.4) : Math.round(Math.sin(t*4+e.id)*1);
   const yy = y + bob;
   if(e.type==='grunt'){
@@ -2067,6 +2377,7 @@ function drawEnemy(e){
     px(x-T.r, yy-24-T.r*.4, T.r*2, 2, '#1a0f18');
     px(x-T.r, yy-24-T.r*.4, Math.max(1,T.r*2*e.hp/e.hpMax), 2, '#ff5c7a');
   }
+  drawEnemyStatus(e,x,y,x-Math.floor(_fxsp.w/2),yy-_fxsp.h,_fxsp,T,t,frozen);
 }
 function drawKey(k){
   const c=G.ctx, t=G.time, x=Math.round(k.x), y=Math.round(k.y + Math.sin(t*3)*2.5);
@@ -2631,6 +2942,7 @@ function spawnEnemy(type, at){
     summonCd:rand(4,6), bossPhase:3 };
   if(G.orderEclipseT>0) applyOrderFlame(e,0,true,G.orderEclipseBurnT||7);
   G.enemies.push(e);
+  pushMonsterSpawn(e,T);
   for(let i=0;i<8;i++) G.parts.push(mkPart(x, y-rand(0,10), T.color, {sp:rand(30,90), life:rand(.2,.5)}));
   return e;
 }
@@ -2678,6 +2990,7 @@ function damageEnemy(e, dmg, opt){
   if(!opt.silent) burst(e.x, e.y-8, opt.big?10:5, T.color, opt.big?150:90);
   if(e.hp<=0 && !e.dead){
     e.dead = true; G.kills++;
+    pushMonsterDeath(e,T);
     fateOnKill(e, T);
     G.player.ult = clamp(G.player.ult + (T.boss?40:7), 0, 100);
     burst(e.x, e.y-8, T.boss?60:18, T.color, T.boss?260:170);
@@ -3018,141 +3331,426 @@ function trySkill(p){
     for(let i=0;i<10;i++) G.parts.push(mkPart(p.x,p.y-8,P.metal,{sp:rand(90,190),life:rand(.22,.48),size:2,g:24}));
   }
 }
-/* ===== 二技能：参考 shishijiushishi 仓库的二段式实现 =====
-   秩序之权 / 战意之权不复制，沿用本地 legacySkill2。 */
-function freshS2(){ return {cd:0, phase:'idle', t:0, dur:0, data:null, fx:null}; }
-function s2Clear(p){ const s=p.s2; s.phase='idle'; s.t=0; s.dur=0; s.data=null; s.fx=null; }
-function s2Target(p,maxD){
-  if(p.tgt && !p.tgt.dead && dist2(p.tgt.x,p.tgt.y,p.x,p.y)<maxD*maxD) return p.tgt;
-  let best=null, bd=maxD*maxD;
-  for(const e of G.enemies){ if(e.dead) continue; const q=dist2(e.x,e.y,p.x,p.y); if(q<bd){ bd=q; best=e; } }
+function freshS2(){ return { cd:0, phase:'idle', t:0, dur:0, data:null, fx:null }; }
+function s2Def(p){ return SKILL2[p.pw.id]; }
+function s2Find(id){
+  if(id==null) return null;
+  return G.enemies.find(e=>e.id===id && !e.dead && e.hp>0) || null;
+}
+function s2Clear(p,hard){
+  const s=p.s2; if(!s) return;
+  const d=s.data;
+  if(d && d.target!=null){ const e=G.enemies.find(z=>z.id===d.target); if(e&&e.chain) e.chain=null; }
+  s.phase='idle'; s.t=0; s.dur=0; s.data=null; s.fx=null;
+  if(hard){ s.cd=0; p.chainSlam=null; p.s2haste=0; }
+}
+function s2Reset(p){ if(p&&p.s2) s2Clear(p,true); }
+function s2PickTarget(p,maxD){
+  maxD=maxD||250;
+  const q=p.tgt && !p.tgt.dead && p.tgt.hp>0 ? p.tgt : null;
+  if(q && dist2(q.x,q.y,p.x,p.y)<maxD*maxD) return q;
+  let best=null,bd=maxD*maxD;
+  for(const e of G.enemies){
+    if(e.dead||e.hp<=0) continue;
+    const d2=dist2(e.x,e.y,p.x,p.y);
+    if(d2<bd){ bd=d2; best=e; }
+  }
   return best;
 }
-/* ===== 二技能特效辅助：照抄 shishijiushishi 原文 ===== */
-function s2Find(id){ return G.enemies.find(o=>o.id===id&&!o.dead)||null; }
+function s2AimPoint(p,dist){
+  const a=p.aimAng;
+  return { x:clamp(p.x+Math.cos(a)*dist,16,G.arena.w-16),
+           y:clamp(p.y+Math.sin(a)*dist,20,G.arena.h-16) };
+}
+function s2HitArea(x,y,r,dmg,opt){
+  opt=opt||{}; let n=0;
+  for(const e of G.enemies){
+    if(e.dead||e.hp<=0) continue;
+    const rr=r+(e.r||8);
+    if(dist2(e.x,e.y-8,x,y)<rr*rr){ damageEnemy(e,dmg,opt); n++; }
+  }
+  return n;
+}
 function s2Burst(x,y,col,n,sp){
   for(let i=0;i<(n||10);i++)
     G.parts.push(mkPart(x+rand(-5,5),y+rand(-5,5),i%3===0?'#ffffff':col,
       {sp:rand(30,sp||120),life:rand(.2,.5),size:i%4===0?2:1,g:20}));
 }
 function s2Ring(x,y,r,col,dur){ G.slashes.push({x,y,a:0,arc:TAU,r,t:0,dur:dur||.4,color:col}); }
-function s2Area(x,y,r,dmg,color,kb,trueDmg){
-  G.slashes.push({x,y,a:0,arc:TAU,r,t:0,dur:.40,color:color||'#fff'});
-  burst(x,y,14,color||'#fff',150);
-  for(const e of G.enemies){
-    if(e.dead || dist2(e.x,e.y-8,x,y)>=r*r) continue;
-    damageEnemy(e,dmg,trueDmg?{big:true,trueDmg:true}:{big:true});
-    if(!e.dead){
-      const dx=e.x-x, dy=(e.y-8)-y, dd=Math.hypot(dx,dy)||1;
-      e.vx+=dx/dd*(kb||150); e.vy+=dy/dd*(kb||150);
+function s2KarmaEnd(p,s,expired){
+  const d=s.data; if(!d) return;
+  const e=s2Find(d.target);
+  if(e){
+    if(e.chain) e.chain=null;
+    if(d.phase==='bound'){
+      damageEnemy(e,expired?14:12,{noKb:true});
+      s2Burst(e.x,e.y-8,expired?'#8c7aa5':'#c9a6ff',8,80);
+      s2Ring(e.x,e.y-8,14,'#8c7aa5',.3);
     }
   }
+  s2Clear(p,false);
 }
-const S2 = {
-  karma:{ name:'业锁·因果链', btn:'业锁', secondHint:'拉回', cd:2.6, dur:3.1, color:'#c9a6ff', dark:'#5b2bbf',
+function s2LifeBurst(p,s,manual){
+  const d=s.data; if(!d) return;
+  const e=s2Find(d.target);
+  const x=e?e.x:(d.phase==='self'?p.x:d.x), y=e?e.y-8:(d.phase==='self'?p.y-8:d.y);
+  if(e&&e.chain) e.chain=null;
+  s2HitArea(x,y,manual?74:56,manual?46:26,{kbMul:manual?1.3:1});
+  p.hp=Math.min(p.hpMax,p.hp+(manual?12:6));
+  s2Burst(x,y,'#58e08a',manual?16:9,120);
+  s2Ring(x,y,manual?30:20,'#c8ffdc',.45);
+  flash('#58e08a',.18);
+  s2Clear(p,false);
+}
+function s2FateOpen(p,s,x,y){
+  const d=s.data, face=d.face;
+  d.phase='done'; d.t=0; d.x=x; d.y=y;
+  s2Burst(x,y,'#ff6fa8',18,160); s2Ring(x,y,26,'#ffd0e4',.45);
+  flash('#ff6fa8',.22); G.shake=Math.max(G.shake,4);
+  if(face>=4){
+    s2HitArea(x,y,92,90,{big:true,kbMul:1.2});
+    for(const e of G.enemies) if(!e.dead&&dist2(e.x,e.y-8,x,y)<92*92) e.burn=Math.max(e.burn,3);
+    G.slashes.push({x,y,a:0,arc:TAU,r:52,t:0,dur:.5,color:'#ffe9a8'});
+    toast('大点数 · 裁决爆发 '+face);
+  } else {
+    for(const e of G.enemies){
+      if(e.dead||e.hp<=0) continue;
+      damageEnemy(e,34,{});
+      if(Math.random()<.5) e.slow=Math.max(e.slow,2); else e.burn=Math.max(e.burn,2);
+    }
+    addFatePoints(2);
+    s2Ring(x,y,44,'#ff6fa8',.5);
+    toast('小点数 · 命运累积 '+face);
+  }
+}
+function s2OrderFall(p,s,manual){
+  const d=s.data; if(!d) return;
+  const x=d.x,y=d.y-8;
+  s2HitArea(x,y,92,manual?78:40,{kbMul:manual?1.6:1,big:true});
+  for(let i=0;i<10;i++)
+    G.parts.push(mkPart(x+rand(-7,7),y-42+i*9,i%2?'#ffffff':'#ffe9a8',{sp:10,life:.4,size:2,g:0}));
+  s2Burst(x,y,'#ffe9a8',manual?18:10,140);
+  s2Ring(x,y,manual?34:22,'#ffe9a8',.45);
+  flash('#cfe4ff',.18);
+  s2Clear(p,false);
+}
+function s2VoidBurst(p,s,manual){
+  const d=s.data; if(!d) return;
+  const x=p.x,y=p.y-8,r=manual?110:84;
+  s2HitArea(x,y,r,manual?64:32,{trueDmg:true,kbMul:manual?1.3:1,big:true});
+  s2Burst(x,y,'#b07bff',manual?20:12,150);
+  s2Ring(x,y,manual?44:30,'#e0d4ff',.5);
+  flash('#b07bff',.22);
+  s2Clear(p,false);
+}
+const SKILL2 = {
+  karma:{ name:'业锁·因果链', btn:'业锁', secondHint:'拉回', cd:9, dur:3.1,
+    color:'#c9a6ff', dark:'#5b2bbf',
     desc:'发射紫色锁链束缚并抓取敌人，期间持续造成抓取伤害；再次点击二技能把目标拉向自己，自动衔接一次伤害提升且带强击退的普攻。',
-    first(p,s){ const e=s2Target(p,250); s.data={target:e?e.id:null,acc:0,phase:'bound',x:p.x,y:p.y-8}; s.fx={type:'chain'};
-      if(e){ e.slow=Math.max(e.slow,3.1); e.weak=Math.max(e.weak,3.1); }
-      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:56,t:0,dur:.30,color:'#c9a6ff'}); },
-    tick(p,s,dt){ const d=s.data; if(!d||d.target==null) return;
-      const e=G.enemies.find(o=>o.id===d.target&&!o.dead); if(!e) return;
-      e.vx=0; e.vy=0; e.slow=Math.max(e.slow,.5);
-      d.acc+=dt; if(d.acc>=.4){ d.acc=0; damageEnemy(e,6,{silent:true}); p.hp=Math.min(p.hpMax,p.hp+2.5); } },
-    second(p,s){ const d=s.data, e=d&&d.target!=null?G.enemies.find(o=>o.id===d.target&&!o.dead):null;
-      if(e){ e.x=p.x+p.aimX*46; e.y=p.y+p.aimY*46; damageEnemy(e,34,{big:true});
-        e.vx+=p.aimX*220; e.vy+=p.aimY*220; burst(e.x,e.y-8,16,'#c9a6ff',180); }
-      s2Clear(p); },
-    expire(p,s){ s2Clear(p); }
+    first(p,s){
+      const e=s2PickTarget(p,250);
+      const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.34;
+      const ox=p.x+Math.cos(a)*9, oy=p.y-10+Math.sin(a)*9;
+      s.data={ phase:'shoot',t:0,target:e?e.id:null,ang:a,ox,oy,x:ox,y:oy,
+        reach:e?Math.min(250,Math.hypot(e.x-p.x,(e.y-8)-(p.y-10))):150,acc:0 };
+      s.fx={type:'chain'};
+      flash('#a86bff',.16);
+    },
+    second(p,s){
+      const d=s.data; if(!d||d.phase!=='bound') return;
+      const e=s2Find(d.target); if(!e) return;
+      d.phase='pull'; d.t=0; d.px=e.x; d.py=e.y; d.ang=p.aimAng;
+      flash('#a86bff',.20); G.shake=Math.max(G.shake,3);
+      s2Ring(e.x,e.y-8,18,'#c9a6ff',.3);
+      toast('业锁回收 · 衔接普攻');
+    },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      const e=s2Find(d.target);
+      if(d.phase==='shoot'){
+        d.t+=dt;
+        const k=clamp(d.t/.20,0,1);
+        const tx=e?e.x:d.ox+Math.cos(d.ang)*d.reach;
+        const ty=e?e.y-8:d.oy+Math.sin(d.ang)*d.reach;
+        d.x=lerp(d.ox,tx,k); d.y=lerp(d.oy,ty,k);
+        if(Math.random()<.7) G.parts.push(mkPart(d.x,d.y,'#d9c7ff',{sp:10,life:.18,size:1,g:0}));
+        if(k>=1){
+          if(e){
+            d.phase='bound'; d.t=0; d.acc=0;
+            e.chain={root:true,t:2.6,owner:'karma'};
+            e.slow=Math.max(e.slow,2.6); e.weak=Math.max(e.weak,2.6);
+            damageEnemy(e,24,{noKb:true});
+            s2Ring(e.x,e.y-8,16,'#c9a6ff',.4);
+            s2Burst(e.x,e.y-8,'#c9a6ff',10,90);
+            toast('已束缚 · 再按一次 R 拉回');
+          } else { d.phase='miss'; d.t=0; s.dur=Math.min(s.dur,s.t+.25); }
+        }
+      } else if(d.phase==='bound'){
+        d.t+=dt;
+        if(!e){ s2Clear(p,false); return; }
+        d.x=e.x; d.y=e.y-8;
+        if(e.chain) e.chain.t=Math.max(0,e.chain.t-dt);
+        d.acc+=dt;
+        if(d.acc>=.35){ d.acc=0; damageEnemy(e,6,{tick:true,noKb:true}); }
+        if(d.t>=2.6) s2KarmaEnd(p,s,false);
+      } else if(d.phase==='pull'){
+        d.t+=dt;
+        if(!e){ s2Clear(p,false); return; }
+        const k=clamp(d.t/.22,0,1);
+        const cx=p.x+Math.cos(d.ang)*30, cy=p.y-10+Math.sin(d.ang)*30;
+        e.x=clamp(lerp(d.px,cx,k),14,G.arena.w-14);
+        e.y=clamp(lerp(d.py,cy+8,k),18,G.arena.h-12);
+        d.x=e.x; d.y=e.y-8;
+        if(Math.random()<.8) G.parts.push(mkPart(e.x,e.y-8,'#a86bff',{sp:20,life:.22,size:1,g:0}));
+        if(k>=1){
+          if(e.chain) e.chain=null;
+          e.slow=Math.max(e.slow,.6);
+          damageEnemy(e,18,{noKb:true});
+          s2Burst(e.x,e.y-8,'#c9a6ff',14,130);
+          s2Ring(e.x,e.y-8,22,'#ffe9a8',.35);
+          p.chainSlam={id:e.id,t:0,dur:1.1,used:false};
+          p.aimAng=d.ang; p.atkAng=d.ang; p.aimX=Math.cos(d.ang); p.aimY=Math.sin(d.ang);
+          p.face=p.aimX<0?-1:1; p.turnBoost=.34; p.atkCd=0;
+          doAttack(p);
+          s2Clear(p,false);
+          G.shake=Math.max(G.shake,4);
+        }
+      } else if(d.phase==='miss'){
+        d.t+=dt; if(d.t>=.25) s2Clear(p,false);
+      }
+    },
+    expire(p,s){ s2KarmaEnd(p,s,true); }
   },
-  time:{ name:'刻印回溯', btn:'刻印', secondHint:'回溯', cd:2.8, dur:4.5, color:'#ffcc44', dark:'#a06a10',
+  time:{ name:'刻印回溯', btn:'刻印', secondHint:'回溯', cd:10, dur:4.5,
+    color:'#ffcc44', dark:'#a06a10',
     desc:'在原地留下时之刻印并短暂加速；4.5 秒内再按一次二技能回溯到刻印、回复生命，并在起点与终点各爆发一次时之刃。',
-    first(p,s){ s.data={x:p.x,y:p.y-8,acc:0}; s.fx={type:'mark'}; p.inv=Math.max(p.inv,.2);
-      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:52,t:0,dur:.35,color:'#ffcc44'}); },
-    tick(p,s,dt){ const d=s.data; if(!d) return; d.acc+=dt;
-      if(d.acc>=.5){ d.acc=0; G.parts.push(mkPart(d.x,d.y,'#ffcc44',{sp:20,life:.3,size:2,g:-10})); } },
-    second(p,s){ s2TimeReturn(p,s,true); }, expire(p,s){ s2TimeReturn(p,s,false); }
+    first(p,s){
+      s.data={x:p.x,y:p.y}; s.fx={type:'mark'};
+      p.s2haste=4.5;
+      s2Ring(p.x,p.y-8,18,'#ffcc44',.45);
+      flash('#ffcc44',.16);
+    },
+    second(p,s){
+      const d=s.data; if(!d) return;
+      const ox=p.x,oy=p.y-8;
+      p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y,minWalkY(p),G.arena.h-14);
+      p.hp=Math.min(p.hpMax,p.hp+18); p.inv=Math.max(p.inv,.35);
+      s2HitArea(ox,oy,70,55,{kbMul:1.1});
+      s2HitArea(p.x,p.y-8,70,55,{kbMul:1.1});
+      G.freeze=Math.max(G.freeze,.7);
+      s2Burst(ox,oy,'#ffcc44',14,140); s2Burst(p.x,p.y-8,'#ffcc44',14,140);
+      s2Ring(ox,oy,26,'#ffcc44',.4); s2Ring(p.x,p.y-8,26,'#fff0b8',.45);
+      flash('#ffcc44',.25); toast('回溯完成');
+      s2Clear(p,false);
+    },
+    tick(){},
+    expire(p,s){
+      const d=s.data; if(!d) return;
+      s2HitArea(d.x,d.y-8,60,30,{});
+      s2Burst(d.x,d.y-8,'#ffcc44',8,90);
+      s2Ring(d.x,d.y-8,20,'#ffcc44',.35);
+    }
   },
-  life:{ name:'荆棘缚环', btn:'藤环', secondHint:'引爆', cd:2.4, dur:2.4, color:'#58e08a', dark:'#1f7a4a',
+  life:{ name:'荆棘缚环', btn:'藤环', secondHint:'引爆', cd:10, dur:2.4,
+    color:'#58e08a', dark:'#1f7a4a',
     desc:'藤环束缚目标并持续吸取生命；再按一次二技能提前引爆，对周围造成伤害与击退并治疗自身。身边没敌人时改为生息脉冲。',
-    first(p,s){ const e=s2Target(p,240); s.data={target:e?e.id:null,acc:0,self:!e,phase:'bound',x:p.x,y:p.y-8}; s.fx=e?{type:'chain'}:{type:'zone',r:56,follow:true};
-      if(e){ e.slow=Math.max(e.slow,2.4); }
-      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:60,t:0,dur:.32,color:'#58e08a'}); },
-    tick(p,s,dt){ const d=s.data; if(!d) return; d.acc+=dt;
-      if(d.acc<.4) return; d.acc=0;
-      if(d.self){ p.hp=Math.min(p.hpMax,p.hp+3); s2Area(p.x,p.y-8,56,8,'#58e08a',0,false); return; }
-      const e=G.enemies.find(o=>o.id===d.target&&!o.dead);
-      if(e){ damageEnemy(e,8,{silent:true}); p.hp=Math.min(p.hpMax,p.hp+3); e.slow=Math.max(e.slow,.6); } },
-    second(p,s){ s2LifeBurst(p,s,true); }, expire(p,s){ s2LifeBurst(p,s,false); }
+    first(p,s){
+      const e=s2PickTarget(p,210);
+      if(!e){
+        s.data={phase:'self',t:0,acc:0}; s.fx={type:'zone',r:56,follow:true};
+        p.hp=Math.min(p.hpMax,p.hp+10);
+        s2Ring(p.x,p.y-8,30,'#58e08a',.5);
+        toast('生息脉冲');
+        return;
+      }
+      const a=Math.atan2((e.y-8)-(p.y-10),e.x-p.x);
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.3;
+      e.chain={root:true,t:2.4,owner:'life'};
+      e.slow=Math.max(e.slow,2.4); e.weak=Math.max(e.weak,2.4);
+      damageEnemy(e,18,{noKb:true});
+      s.data={phase:'bound',target:e.id,t:0,acc:0,x:e.x,y:e.y-8};
+      s.fx={type:'chain'};
+      s2Ring(e.x,e.y-8,16,'#58e08a',.4);
+    },
+    second(p,s){ s2LifeBurst(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      if(d.phase==='bound'){
+        const e=s2Find(d.target); if(!e){ s2Clear(p,false); return; }
+        d.x=e.x; d.y=e.y-8;
+        if(e.chain) e.chain.t=Math.max(0,e.chain.t-dt);
+        d.acc+=dt;
+        if(d.acc>=.4){ d.acc=0; damageEnemy(e,5,{tick:true,noKb:true}); p.hp=Math.min(p.hpMax,p.hp+2.5); }
+        if(Math.random()<.25) G.parts.push(mkPart(e.x+rand(-8,8),e.y-8+rand(-8,8),'#58e08a',{sp:8,life:.3,size:1,g:-10}));
+      } else if(d.phase==='self'){
+        d.t+=dt;
+        if(d.t>=.5){ d.t=0; p.hp=Math.min(p.hpMax,p.hp+3); s2HitArea(p.x,p.y-8,56,8,{tick:true,noKb:true}); }
+      }
+    },
+    expire(p,s){ s2LifeBurst(p,s,false); }
   },
-  fate:{ name:'双面骰', btn:'骰子', secondHint:'开骰', cd:3.0, dur:2.2, color:'#ff6fa8', dark:'#8c2350',
+  fate:{ name:'双面骰', btn:'骰子', secondHint:'开骰', cd:11, dur:2.2,
+    color:'#ff6fa8', dark:'#8c2350',
     desc:'掷出巨型骰子，飞行途中再按一次二技能可提前开骰；点数 ≥4 触发大范围裁决爆炸，≤3 改为全场轰击并累积命运点数。',
-    first(p,s){ const e=s2Target(p,260); const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
-      s.data={face:randi(1,6),x:p.x+Math.cos(a)*40,y:p.y-8+Math.sin(a)*40,
-        tx:e?e.x:p.x+Math.cos(a)*160,ty:e?e.y-8:p.y-8+Math.sin(a)*160,t:0}; s.fx={type:'dice'};
-      G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:44,t:0,dur:.3,color:'#ff6fa8'}); },
-    tick(p,s,dt){ const d=s.data; if(!d) return; d.t+=dt;
-      const k=clamp(d.t/.32,0,1); d.x=lerp(d.x,d.tx,k*.35); d.y=lerp(d.y,d.ty,k*.35);
-      if(Math.random()<.4) G.parts.push(mkPart(d.x,d.y,'#ffd0e4',{sp:30,life:.25,size:2,g:0})); },
-    second(p,s){ s2FateOpen(p,s); }, expire(p,s){ s2FateOpen(p,s); }
+    first(p,s){
+      const e=s2PickTarget(p,260);
+      const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
+      p.aimAng=a; p.atkAng=a; p.aimX=Math.cos(a); p.aimY=Math.sin(a); p.turnBoost=.3;
+      const ox=p.x+Math.cos(a)*10, oy=p.y-10+Math.sin(a)*10;
+      s.data={ phase:'fly',t:0,ox,oy,x:ox,y:oy,
+        tx:e?e.x:p.x+Math.cos(a)*150, ty:e?e.y-8:p.y-10+Math.sin(a)*150,
+        face:randi(1,6),spin:0 };
+      s.fx={type:'dice'};
+    },
+    second(p,s){ const d=s.data; if(d&&d.phase==='fly') s2FateOpen(p,s,d.x,d.y); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      if(d.phase==='fly'){
+        d.t+=dt; d.spin+=dt*12;
+        const k=clamp(d.t/.32,0,1);
+        d.x=lerp(d.ox,d.tx,k); d.y=lerp(d.oy,d.ty,k);
+        if(k>=1) s2FateOpen(p,s,d.x,d.y);
+      } else if(d.phase==='done'){
+        d.t+=dt; if(d.t>=.6) s2Clear(p,false);
+      }
+    },
+    expire(){}
   },
-  space:{ name:'折跃标记', btn:'裂隙', secondHint:'折跃', cd:2.7, dur:4, color:'#35d6ff', dark:'#0b6f96',
+  order:{ name:'律令方阵', btn:'方阵', secondHint:'审判', cd:11, dur:3,
+    color:'#cfe4ff', dark:'#4a6a9c',
+    desc:'在身前布下律令方阵，持续压制并削弱范围内敌人；再按一次二技能提前落下审判光柱，造成伤害与击退。',
+    first(p,s){
+      const e=s2PickTarget(p,220);
+      const q=e ? {x:clamp(e.x,16,G.arena.w-16),y:clamp(e.y,20,G.arena.h-16)} : s2AimPoint(p,92);
+      s.data={x:q.x,y:q.y,acc:0}; s.fx={type:'square'};
+      s2Ring(q.x,q.y-8,24,'#cfe4ff',.4);
+    },
+    second(p,s){ s2OrderFall(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      d.acc+=dt;
+      if(d.acc>=.3){
+        d.acc=0;
+        for(const e of G.enemies){
+          if(e.dead||e.hp<=0) continue;
+          if(dist2(e.x,e.y-8,d.x,d.y-8)<76*76){
+            damageEnemy(e,8,{tick:true,noKb:true});
+            e.weak=Math.max(e.weak,.35); e.slow=Math.max(e.slow,.35);
+          }
+        }
+      }
+    },
+    expire(p,s){ s2OrderFall(p,s,false); }
+  },
+  space:{ name:'折跃标记', btn:'裂隙', secondHint:'折跃', cd:9, dur:4,
+    color:'#35d6ff', dark:'#0b6f96',
     desc:'向瞄准方向投放裂隙标记；再按一次二技能瞬移到标记，起点与终点各爆一次范围伤害并获得短暂无敌。',
-    first(p,s){ const a=p.aimAng;
-      s.data={x:clamp(p.x+Math.cos(a)*180,20,G.arena.w-20),
-              y:clamp(p.y-8+Math.sin(a)*180,20,G.arena.h-20)}; s.fx={type:'mark'};
-      G.slashes.push({x:s.data.x,y:s.data.y,a:0,arc:TAU,r:52,t:0,dur:.4,color:'#35d6ff'}); },
-    tick(p,s,dt){ const d=s.data; if(!d) return;
-      if(Math.random()<.3) G.parts.push(mkPart(d.x+rand(-14,14),d.y+rand(-14,14),'#c8f6ff',{sp:16,life:.3,size:1,g:0})); },
-    second(p,s){ s2SpaceJump(p,s); }, expire(p,s){ s2SpaceJump(p,s); }
+    first(p,s){
+      const q=s2AimPoint(p,116);
+      s.data={x:q.x,y:q.y}; s.fx={type:'mark'};
+      s2Ring(q.x,q.y-8,20,'#35d6ff',.45);
+    },
+    second(p,s){
+      const d=s.data; if(!d) return;
+      const ox=p.x,oy=p.y-8;
+      p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y,minWalkY(p),G.arena.h-14);
+      p.inv=Math.max(p.inv,.45); p.dashT=0;
+      s2HitArea(ox,oy,64,40,{kbMul:1.1});
+      s2HitArea(p.x,p.y-8,78,55,{kbMul:1.2});
+      for(const e of G.enemies) if(!e.dead&&dist2(e.x,e.y-8,p.x,p.y-8)<78*78) e.slow=Math.max(e.slow,1.2);
+      s2Burst(ox,oy,'#35d6ff',12,150); s2Burst(p.x,p.y-8,'#c8f6ff',16,160);
+      s2Ring(ox,oy,24,'#35d6ff',.4); s2Ring(p.x,p.y-8,30,'#c8f6ff',.5);
+      G.parts.push(mkPart(ox,oy,'#35d6ff',{sp:0,life:.35,size:3,g:0}));
+      flash('#35d6ff',.22); toast('折跃完成');
+      s2Clear(p,false);
+    },
+    tick(){},
+    expire(p,s){
+      const d=s.data; if(!d) return;
+      s2HitArea(d.x,d.y-8,60,30,{});
+      s2Burst(d.x,d.y-8,'#35d6ff',9,100);
+      s2Ring(d.x,d.y-8,20,'#35d6ff',.35);
+    }
   },
-  void:{ name:'归零脉冲', btn:'归零', secondHint:'引爆', cd:2.9, dur:3, color:'#b07bff', dark:'#2a1c40',
+  void:{ name:'归零脉冲', btn:'归零', secondHint:'引爆', cd:12, dur:3,
+    color:'#b07bff', dark:'#2a1c40',
     desc:'展开跟随自身的归零场，持续抹除敌方弹幕并造成真实伤害；再按一次二技能提前引爆，造成范围真伤与击退。',
-    first(p,s){ s.data={x:p.x,y:p.y-8,r:90,acc:0}; s.fx={type:'zone',follow:true}; G.zones.push({kind:'void',x:p.x,y:p.y,r:90,t:0,dur:3,color:'#b07bff',follow:true}); },
-    tick(p,s,dt){ const d=s.data; if(!d) return;
-      G.bullets=G.bullets.filter(b=>b.owner!=='e'||dist2(b.x,b.y,p.x,p.y-8)>d.r*d.r);
-      d.acc+=dt; if(d.acc>=.4){ d.acc=0;
-        for(const e of G.enemies){ if(e.dead||dist2(e.x,e.y-8,p.x,p.y-8)>=d.r*d.r) continue;
-          damageEnemy(e,9,{silent:true,trueDmg:true}); e.slow=Math.max(e.slow,.5); } } },
-    second(p,s){ s2VoidBurst(p,s,true); }, expire(p,s){ s2VoidBurst(p,s,false); }
+    first(p,s){
+      s.data={x:p.x,y:p.y-8,r:84,acc:0}; s.fx={type:'zone',follow:true};
+      s2Ring(p.x,p.y-8,30,'#b07bff',.5);
+    },
+    second(p,s){ s2VoidBurst(p,s,true); },
+    tick(p,s,dt){
+      const d=s.data; if(!d) return;
+      d.x=p.x; d.y=p.y-8;
+      for(let i=G.bullets.length-1;i>=0;i--){
+        const b=G.bullets[i];
+        if(b.owner==='e'&&dist2(b.x,b.y,d.x,d.y)<d.r*d.r){
+          G.parts.push(mkPart(b.x,b.y,'#b07bff',{sp:14,life:.25,size:1,g:0}));
+          G.bullets.splice(i,1);
+        }
+      }
+      d.acc+=dt;
+      if(d.acc>=.4){
+        d.acc=0;
+        for(const e of G.enemies){
+          if(e.dead||e.hp<=0) continue;
+          if(dist2(e.x,e.y-8,d.x,d.y)<d.r*d.r){
+            damageEnemy(e,9,{tick:true,trueDmg:true,noKb:true});
+            e.slow=Math.max(e.slow,.4);
+          }
+        }
+      }
+    },
+    expire(p,s){ s2VoidBurst(p,s,false); }
   }
 };
-function s2TimeReturn(p,s,manual){ const d=s.data; if(!d) return;
-  const ox=p.x, oy=p.y-8;
-  p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y+8,20,G.arena.h-14); resolveBlocks(p);
-  healPlayer(p.hpMax*.2); p.inv=Math.max(p.inv,.5);
-  s2Area(ox,oy,80,42,'#ffcc44',170,false); s2Area(p.x,p.y-8,80,42,'#ffe9a8',170,false);
-  if(manual) G.freeze=Math.max(G.freeze,1);
-  flash('#ffcc44',.3); s2Clear(p); }
-function s2LifeBurst(p,s,manual){ const d=s.data; if(!d) return;
-  const e=d.target!=null?G.enemies.find(o=>o.id===d.target&&!o.dead):null;
-  const x=e?e.x:p.x, y=e?e.y-8:p.y-8;
-  s2Area(x,y,manual?96:70,manual?46:24,'#58e08a',200,false);
-  healPlayer(manual?18:8); flash('#58e08a',.25); s2Clear(p); }
-function s2FateOpen(p,s){ const d=s.data; if(!d) return;
-  if(d.face>=4){ s2Area(d.tx,d.ty,160,140,'#ff6fa8',260,false); G.shake=Math.max(G.shake,14); }
-  else { for(let i=0;i<6;i++){ const x=rand(30,G.arena.w-30), y=rand(30,G.arena.h-30);
-    s2Area(x,y,64,60,'#ff6fa8',120,false); } }
-  toast('骰面 '+d.face); flash('#ff6fa8',.35); s2Clear(p); }
-function s2SpaceJump(p,s){ const d=s.data; if(!d) return;
-  const ox=p.x, oy=p.y-8;
-  p.x=clamp(d.x,14,G.arena.w-14); p.y=clamp(d.y+8,20,G.arena.h-14); resolveBlocks(p);
-  p.inv=Math.max(p.inv,.6);
-  s2Area(ox,oy,110,64,'#35d6ff',200,true); s2Area(p.x,p.y-8,110,64,'#c8f6ff',200,true);
-  flash('#35d6ff',.3); s2Clear(p); }
-function s2VoidBurst(p,s,manual){ const d=s.data; if(!d) return;
-  s2Area(p.x,p.y-8,manual?110:84,manual?64:32,'#b07bff',210,true);
-  flash('#b07bff',.28); s2Clear(p); }
+function trySkill2(p){
+  if(!Settings.data.skill2On) return;
+  const def=s2Def(p); if(!def) return legacySkill2(p);
+  const s=p.s2;
+  if(s.phase==='active'){ if(def.second) def.second(p,s); return; }
+  if(s.cd>0) return;
+  s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null; s.fx=null;
+  def.first(p,s);
+  toast(def.name + (def.secondHint ? ' · 再按 R '+def.secondHint : ''));
+}
 function updateSkill2(dt){
   const p=G.player; if(!p||!p.s2) return;
   const s=p.s2;
   if(s.cd>0) s.cd=Math.max(0,s.cd-dt);
+  if(p.s2haste>0) p.s2haste=Math.max(0,p.s2haste-dt);
+  if(p.chainSlam){
+    p.chainSlam.t+=dt;
+    if(p.chainSlam.t>=p.chainSlam.dur) p.chainSlam=null;
+  }
   if(s.phase!=='active') return;
-  const def=S2[p.pw.id]; if(!def){ s2Clear(p); return; }
+  const def=s2Def(p); if(!def){ s2Clear(p,false); return; }
   s.t+=dt;
   if(def.tick) def.tick(p,s,dt);
   if(s.phase!=='active') return;
-  if(s.t>=s.dur){ if(def.expire) def.expire(p,s); s2Clear(p); }
+  if(s.t>=s.dur){ if(def.expire) def.expire(p,s); s2Clear(p,false); }
 }
+
+/* ===== 本地引擎胶水（唯一非原文段）：让逐字照抄的参考代码在本引擎运行 ===== */
+const Settings={data:{fxTier:1,skill2On:true,hitShake:true}};
+function minWalkY(p){ return 20; }
+function monsterFrame(e,t){ return 0; }
+const _blankSpr=document.createElement('canvas'); _blankSpr.width=1; _blankSpr.height=1;
+const MSPR=new Proxy({}, {get:(o,k)=>({w:18,h:18,P:{g:'#ffffff'},samples:[],whites:[_blankSpr]})});
+const S2=SKILL2;                       /* HUD / 校验 / drawSkill2Fx 沿用此名 */
+/* 用户硬性约定：二技能 CD ≤3 且不全为 3（原文为 9~12 秒） */
+const S2_CD={karma:2.6,time:2.8,life:2.4,fate:3.0,order:2.5,space:2.7,void:2.9};
+for(const k in S2_CD) if(SKILL2[k]) SKILL2[k].cd=S2_CD[k];
+/* 用户硬性约定：时间二技能二段 1 秒时停（原文 .7 秒） */
+const _refTimeSecond=SKILL2.time.second;
+SKILL2.time.second=function(p,s){ _refTimeSecond(p,s); G.freeze=Math.max(G.freeze,1); };
+/* 怪物特效队列的帧驱动（参考原文 7711-7713） */
+function updateMonsterFx(dt){
+  for(let i=G.monsterFx.length-1;i>=0;i--){ const q=G.monsterFx[i]; q.t+=dt; if(q.t>=q.life) G.monsterFx.splice(i,1); }
+}
+
 /* ===== 卷轴：招式随机进入普攻 / 技能卷轴（参考 shishijiushishi 仓库） ===== */
 const SCROLL_MIN_GAP = .22;
 const SCROLLS = [
@@ -3420,18 +4018,6 @@ function buildShop(){
   }
 }
 
-function trySkill2(p){
-  const def=S2[p.pw.id];
-  if(!def) return legacySkill2(p);
-  const s=p.s2;
-  if(s.phase==='active'){ if(def.second) def.second(p,s); return; }
-  if(s.cd>0) return;
-  s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null; s.fx=null;
-  def.first(p,s);
-  s2Ring(p.x,p.y-8,18,def.color,.45); s2Burst(p.x,p.y-8,def.color,10,110);
-  toast(def.name + (def.secondHint ? ' · 再按 R '+def.secondHint : ''));
-  flash(def.color||p.pw.color,.28);
-}
 function legacySkill2(p){
   if(p.skill2Cd>0) return;
   const P=p.pw, S=P.skill2;
@@ -3587,6 +4173,7 @@ function flash(color, a){ G.flash = a; G.flashColor = color; }
 function updateBattle(dt){
   const p = G.player, I = Input;
   G.elapsed += dt;
+  updateMonsterFx(dt);
   if(G.orderEclipseT>0){
     G.orderEclipseT=Math.max(0,G.orderEclipseT-dt);
     if(G.orderEclipseT===0) G.orderEclipseBurnT=0;
@@ -4005,6 +4592,7 @@ function renderBattle(){
   const oy = -Math.round(G.cam.y) + (sh? Math.round(rand(-sh,sh)*.45) : 0);
   c.save(); c.translate(ox, oy);
   drawArena();
+  drawMonsterFx(false);
   drawCore();
   if(G.key) drawKey(G.key);
   const ents = [...G.enemies.map(e=>({k:'e',o:e,y:e.y})), {k:'p',o:G.player,y:G.player.y}];
@@ -4064,6 +4652,7 @@ function renderBattle(){
       pxo(e.x+Math.cos(ang)*(r-2)-1, e.y-8+Math.sin(ang)*(r-2)-1, 1, 1, p2.pw.color, a*.9);
     }
   }
+  drawMonsterFx(true);
   drawSkill2Fx();
   c.restore();
   drawFx();
@@ -4145,7 +4734,7 @@ function updateHud(){
     sk.classList.add('hidden');
     skillBtn.classList.add('ready');
   }
-  const s2cd = (p.pw.id==='order'||p.pw.id==='war') ? p.skill2Cd : (p.s2?p.s2.cd:0);
+  const s2cd = p.pw.id==='war' ? p.skill2Cd : (p.s2?p.s2.cd:0);
   if(s2cd>0){
     s2Btn.classList.remove('ready'); s2.classList.remove('hidden');
     s2.textContent = s2cd < 1 ? `${Math.max(0,s2cd).toFixed(2)}` : `${Math.ceil(s2cd)}`;
