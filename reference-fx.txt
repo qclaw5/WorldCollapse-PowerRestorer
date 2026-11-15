@@ -1,0 +1,206 @@
+/* ============================================================================
+   原文摘录 · wuzayishi/shishijiushishi  main/index.html
+   内容：二技能视觉特效（drawSkill2Fx 全表）+ 粒子/环/锁链辅助 + 时停表盘对照
+   以下全部为参考仓库原文，逐字复制，未做任何改写或适配。
+   左侧数字是原文件行号，便于对照查阅。
+   ============================================================================ */
+
+
+/* ---------- [1] 特效辅助：s2Find / s2Clear / s2HitArea / s2Burst / s2Ring · 原文 6494-6537 ---------- */
+ 6494 | function s2Find(id){
+ 6495 |   if(id==null) return null;
+ 6496 |   return G.enemies.find(e=>e.id===id && !e.dead && e.hp>0) || null;
+ 6497 | }
+ 6498 | function s2Clear(p,hard){
+ 6499 |   const s=p.s2; if(!s) return;
+ 6500 |   const d=s.data;
+ 6501 |   if(d && d.target!=null){ const e=G.enemies.find(z=>z.id===d.target); if(e&&e.chain) e.chain=null; }
+ 6502 |   s.phase='idle'; s.t=0; s.dur=0; s.data=null; s.fx=null;
+ 6503 |   if(hard){ s.cd=0; p.chainSlam=null; p.s2haste=0; }
+ 6504 | }
+ 6505 | function s2Reset(p){ if(p&&p.s2) s2Clear(p,true); }
+ 6506 | function s2PickTarget(p,maxD){
+ 6507 |   maxD=maxD||250;
+ 6508 |   const q=p.tgt && !p.tgt.dead && p.tgt.hp>0 ? p.tgt : null;
+ 6509 |   if(q && dist2(q.x,q.y,p.x,p.y)<maxD*maxD) return q;
+ 6510 |   let best=null,bd=maxD*maxD;
+ 6511 |   for(const e of G.enemies){
+ 6512 |     if(e.dead||e.hp<=0) continue;
+ 6513 |     const d2=dist2(e.x,e.y,p.x,p.y);
+ 6514 |     if(d2<bd){ bd=d2; best=e; }
+ 6515 |   }
+ 6516 |   return best;
+ 6517 | }
+ 6518 | function s2AimPoint(p,dist){
+ 6519 |   const a=p.aimAng;
+ 6520 |   return { x:clamp(p.x+Math.cos(a)*dist,16,G.arena.w-16),
+ 6521 |            y:clamp(p.y+Math.sin(a)*dist,20,G.arena.h-16) };
+ 6522 | }
+ 6523 | function s2HitArea(x,y,r,dmg,opt){
+ 6524 |   opt=opt||{}; let n=0;
+ 6525 |   for(const e of G.enemies){
+ 6526 |     if(e.dead||e.hp<=0) continue;
+ 6527 |     const rr=r+(e.r||8);
+ 6528 |     if(dist2(e.x,e.y-8,x,y)<rr*rr){ damageEnemy(e,dmg,opt); n++; }
+ 6529 |   }
+ 6530 |   return n;
+ 6531 | }
+ 6532 | function s2Burst(x,y,col,n,sp){
+ 6533 |   for(let i=0;i<(n||10);i++)
+ 6534 |     G.parts.push(mkPart(x+rand(-5,5),y+rand(-5,5),i%3===0?'#ffffff':col,
+ 6535 |       {sp:rand(30,sp||120),life:rand(.2,.5),size:i%4===0?2:1,g:20}));
+ 6536 | }
+ 6537 | function s2Ring(x,y,r,col,dur){ G.slashes.push({x,y,a:0,arc:TAU,r,t:0,dur:dur||.4,color:col}); }
+
+/* ---------- [2] 二技能特效渲染：s2DrawChain / drawSkill2Fx · 原文 6893-6962 ---------- */
+ 6893 | function s2DrawChain(x1,y1,x2,y2,col,dark,t){
+ 6894 |   const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1;
+ 6895 |   line(x1,y1,x2,y2,dark,.85,3);
+ 6896 |   line(x1,y1,x2,y2,col,.55,1);
+ 6897 |   const n=Math.max(2,Math.floor(len/7));
+ 6898 |   for(let i=0;i<=n;i++){
+ 6899 |     const u=i/n, xx=x1+dx*u, yy=y1+dy*u+Math.sin(t*13+i*.85)*1.1;
+ 6900 |     px(xx-2,yy-2,4,4,dark);
+ 6901 |     px(xx-1,yy-1,2,2,col);
+ 6902 |     if(i%2===0) px(xx,yy,1,1,'#ffffff');
+ 6903 |   }
+ 6904 |   px(x2-3,y2-3,6,6,dark); px(x2-2,y2-2,4,4,col); px(x2-1,y2-1,2,2,'#ffffff');
+ 6905 | }
+ 6906 | function drawSkill2Fx(){
+ 6907 |   const p=G.player; if(!p||!p.s2||p.s2.phase!=='active') return;
+ 6908 |   const s=p.s2, def=SKILL2[p.pw.id], d=s.data||{}, fx=s.fx||{}, t=s.t;
+ 6909 |   const col=def.color, dark=def.dark;
+ 6910 |   if(fx.type==='chain'){
+ 6911 |     const e=s2Find(d.target);
+ 6912 |     const flying=(d.phase==='shoot'||d.phase==='miss');
+ 6913 |     const tx=flying?d.x:(e?e.x:d.x), ty=flying?d.y:(e?e.y-8:d.y);
+ 6914 |     const a=Math.atan2(ty-(p.y-10),tx-p.x);
+ 6915 |     const sx=p.x+Math.cos(a)*9, sy=p.y-10+Math.sin(a)*9;
+ 6916 |     s2DrawChain(sx,sy,tx,ty,col,dark,t);
+ 6917 |     if(e&&!flying){
+ 6918 |       const r=(e.r||10)+8;
+ 6919 |       ring(e.x,e.y-8,r,col,.65+Math.sin(t*8)*.15,1);
+ 6920 |       ring(e.x,e.y-8,r+5,dark,.4,1);
+ 6921 |       line(e.x-r*.7,e.y-8-r*.4,e.x+r*.7,e.y-8+r*.4,col,.5,1);
+ 6922 |       line(e.x-r*.7,e.y-8+r*.4,e.x+r*.7,e.y-8-r*.4,col,.5,1);
+ 6923 |       for(let i=0;i<6;i++){
+ 6924 |         const ang=t*2.2+i*TAU/6;
+ 6925 |         px(e.x+Math.cos(ang)*(r+4)-1,e.y-8+Math.sin(ang)*(r+4)-1,2,2,i%2?'#ffffff':col);
+ 6926 |       }
+ 6927 |     }
+ 6928 |   } else if(fx.type==='mark'){
+ 6929 |     const x=d.x,y=d.y-8,k=.5+.5*Math.sin(t*7);
+ 6930 |     pxell(x,y+9,14,4,'#000',.25);
+ 6931 |     ring(x,y,9+k*2,col,.85,2); ring(x,y,20,col,.3,1);
+ 6932 |     for(let i=0;i<4;i++){
+ 6933 |       const ang=t*1.4+i*Math.PI/2;
+ 6934 |       px(x+Math.cos(ang)*15-1,y+Math.sin(ang)*15-1,3,3,i%2?'#ffffff':col);
+ 6935 |     }
+ 6936 |     px(x-1,y-1,2,2,'#ffffff');
+ 6937 |   } else if(fx.type==='square'){
+ 6938 |     const x=d.x,y=d.y-8,R=30;
+ 6939 |     line(x-R,y-R*.55,x+R,y-R*.55,col,.65,1);
+ 6940 |     line(x-R,y+R*.55,x+R,y+R*.55,col,.65,1);
+ 6941 |     line(x-R,y-R*.55,x-R,y+R*.55,col,.65,1);
+ 6942 |     line(x+R,y-R*.55,x+R,y+R*.55,col,.65,1);
+ 6943 |     for(let i=0;i<4;i++) px(x+(i%2?R:-R)-2,y+(i<2?-R*.55:R*.55)-2,4,4,'#ffe9a8');
+ 6944 |     ring(x,y,10+Math.sin(t*6)*2,col,.5,1);
+ 6945 |     for(let j=0;j<3;j++) px(x-8+j*8,y+Math.sin(t*8+j)*3,2,2,col);
+ 6946 |   } else if(fx.type==='zone'){
+ 6947 |     const x=fx.follow?p.x:d.x, y=fx.follow?p.y-8:d.y, r=fx.r||d.r||56;
+ 6948 |     ring(x,y,r,col,.45,1); ring(x,y,Math.max(2,r-6),dark,.35,1);
+ 6949 |     pxell(x,y,r*.8,r*.35,col,.055);
+ 6950 |     for(let i=0;i<8;i++){
+ 6951 |       const ang=t*1.2+i*TAU/8;
+ 6952 |       px(x+Math.cos(ang)*r-1,y+Math.sin(ang)*r*.6-1,2,2,i%2?'#ffffff':col);
+ 6953 |     }
+ 6954 |     for(let j=-2;j<=2;j++)
+ 6955 |       line(x-r*.7,y+j*9+Math.sin(t*4+j)*2,x+r*.7,y+j*9+Math.sin(t*4+j)*2,col,.10,1);
+ 6956 |   } else if(fx.type==='dice'){
+ 6957 |     const x=d.x,y=d.y,q=Math.abs(Math.sin(d.spin||t*10));
+ 6958 |     px(x-5,y-5,10,10,dark); px(x-4,y-4,8,8,'#f4eaff');
+ 6959 |     px(x-4,y-4,8,1,'#ffffff'); px(x-4,y-4,1,8,'#ffffff');
+ 6960 |     px(x-1-q*2,y-1,2,2,col); px(x+2,y+1+q,2,2,col); px(x-1,y+2,1,1,dark);
+ 6961 |   }
+ 6962 | }
+
+/* ---------- [3] 全屏特效对照：drawFx 时停表盘 / 屏幕滤镜（本地 drawFx 已抄） · 原文 5188-5247 ---------- */
+ 5188 | function drawFx(){
+ 5189 |   const c=G.ctx, v=G.view, p=G.player;
+ 5190 |   if(p && p.pw.id==='karma' && p.skillT>0){
+ 5191 |     const g = c.createRadialGradient(v.w/2,v.h/2,Math.min(v.w,v.h)*.22, v.w/2,v.h/2, Math.max(v.w,v.h)*.72);
+ 5192 |     g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(24,4,40,.72)');
+ 5193 |     c.fillStyle=g; c.fillRect(0,0,v.w,v.h);
+ 5194 |     c.globalCompositeOperation='overlay'; c.fillStyle='rgba(150,80,255,.16)'; c.fillRect(0,0,v.w,v.h);
+ 5195 |     c.globalCompositeOperation='source-over';
+ 5196 |   }
+ 5197 |   if(p && p.pw.id==='time' && p.skillT>0){
+ 5198 |     c.globalCompositeOperation='overlay'; c.fillStyle='rgba(255,200,60,.14)'; c.fillRect(0,0,v.w,v.h);
+ 5199 |     c.globalCompositeOperation='source-over';
+ 5200 |     c.fillStyle='rgba(255,220,120,.05)';
+ 5201 |     for(let y=(G.time*40)%6; y<v.h; y+=6) c.fillRect(0,Math.round(y),v.w,1);
+ 5202 |   }
+ 5203 |   for(const z of G.zones){
+ 5204 |     const a = z.t/z.dur;
+ 5205 |     ring(z.x, z.y, z.r, z.color, .18+.10*Math.sin(G.time*4), 2);
+ 5206 |     ring(z.x, z.y, z.r-3, z.color, .10, 1);
+ 5207 |     pxc(z.x, z.y, z.r, z.color, .05);
+ 5208 |     for(let i=0;i<8;i++){
+ 5209 |       const ang = G.time*0.7 + i*TAU/8;
+ 5210 |       px(z.x+Math.round(Math.cos(ang)*z.r), z.y+Math.round(Math.sin(ang)*z.r), 2, 2, z.color, .55+.25*Math.sin(G.time*5+i));
+ 5211 |     }
+ 5212 |   }
+ 5213 |   let stopT = 0;
+ 5214 |   if(p && p.pw.id==='time' && p.skillT>0) stopT = Math.max(stopT, p.skillT);
+ 5215 |   if(G.freeze>0) stopT = Math.max(stopT, G.freeze);
+ 5216 |   if(stopT>0){
+ 5217 |     if(stopT > G.stopDur) G.stopDur = stopT;
+ 5218 |     const dur = G.stopDur>0 ? G.stopDur : stopT;
+ 5219 |     const frac = clamp(stopT/dur, 0, 1);
+ 5220 |     const cx = v.w/2, cy = v.h*0.46;
+ 5221 |     const R  = clamp(Math.min(v.w,v.h)*0.26, 18, 46);
+ 5222 |     const urgent = stopT<=3;
+ 5223 |     const blink  = urgent ? (0.55+0.45*Math.sin(G.time*14)) : 1;
+ 5224 |     const col    = urgent ? '#ff5c7a' : '#ffd76b';
+ 5225 |     const dim    = (i)=> (i<=frac ? 1 : .32);
+ 5226 |     ring(cx, cy, R, '#0b0a14', .55, 3);
+ 5227 |     ring(cx, cy, R+2, col, .16*blink, 1);
+ 5228 |     for(let i=0;i<12;i++){
+ 5229 |       const a = i*TAU/12 - Math.PI/2, big=(i%3===0);
+ 5230 |       const r0 = R-(big?6:4), r1 = R+(big?2:1);
+ 5231 |       line(cx+Math.cos(a)*r0, cy+Math.sin(a)*r0, cx+Math.cos(a)*r1, cy+Math.sin(a)*r1,
+ 5232 |            col, (urgent?.95:.6)*dim(i/12)*blink, big?2:1);
+ 5233 |     }
+ 5234 |     c.strokeStyle=col; c.lineWidth=3; c.globalAlpha=blink;
+ 5235 |     c.beginPath(); c.arc(cx, cy, R-4, -Math.PI/2, -Math.PI/2 + TAU*frac); c.stroke();
+ 5236 |     c.globalAlpha=blink*.45; c.lineWidth=1;
+ 5237 |     c.beginPath(); c.arc(cx, cy, R-7, -Math.PI/2, -Math.PI/2 + TAU*frac); c.stroke();
+ 5238 |     c.globalAlpha=1;
+ 5239 |     const pa = -Math.PI/2 + TAU*(1-frac);
+ 5240 |     line(cx, cy, cx+Math.cos(pa)*(R-8), cy+Math.sin(pa)*(R-8), '#ffffff', .85*blink, 1);
+ 5241 |     pxc(cx, cy, 2, col, .95*blink);
+ 5242 |     const sc = urgent ? 3 : 2;
+ 5243 |     const txt = String(Math.ceil(stopT));
+ 5244 |     pxText(txt, Math.round(cx - pxTextW(txt,sc)/2), Math.round(Math.max(3, cy - R - sc*6 - 2)), sc,
+ 5245 |            urgent?'#ff8fa3':'#ffe9a8', blink);
+ 5246 |     pxText('TIME STOP', Math.round(cx - pxTextW('TIME STOP',1)/2), Math.round(Math.min(v.h-6, cy + R + 5)), 1, col, .8*blink);
+ 5247 |     for(let i=0;i<4;i++){
+
+/* ---------- [4] 渲染调用顺序（原文 render） · 原文 7838-7844 ---------- */
+ 7838 |       drawEnemy(e2);
+ 7839 |     } else drawHero(en.o);
+ 7840 |   }
+ 7841 |   drawMonsterFx(true);
+ 7842 |   drawSkill2Fx();
+ 7843 |   drawKarmaUltFront();
+ 7844 |   drawPickups();
+
+/* ---------- [5] SKILL2 中 s.fx 挂载点（原文行号） ---------- */
+ 6615 |       s.fx={type:'chain'};
+ 6687 |       s.data={x:p.x,y:p.y}; s.fx={type:'mark'};
+ 6719 |         s.data={phase:'self',t:0,acc:0}; s.fx={type:'zone',r:56,follow:true};
+ 6731 |       s.fx={type:'chain'};
+ 6762 |       s.fx={type:'dice'};
+ 6784 |       s.data={x:q.x,y:q.y,acc:0}; s.fx={type:'square'};
+ 6809 |       s.data={x:q.x,y:q.y}; s.fx={type:'mark'};
+ 6838 |       s.data={x:p.x,y:p.y-8,r:84,acc:0}; s.fx={type:'zone',follow:true};

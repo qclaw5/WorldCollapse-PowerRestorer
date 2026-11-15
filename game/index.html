@@ -2303,6 +2303,79 @@ function drawFx(){
   }
   if(G.flash>0){ c.globalAlpha=clamp(G.flash,0,1); c.fillStyle=G.flashColor; c.fillRect(0,0,v.w,v.h); c.globalAlpha=1; }
 }
+/* ===== 二技能持续特效：照抄 shishijiushishi drawSkill2Fx 原文 =====
+   仅做 3 处引擎适配：SKILL2→S2、无 S2 的英雄(秩序/战意)直接返回、mark 坐标沿用本地屏幕 y。 */
+function s2DrawChain(x1,y1,x2,y2,col,dark,t){
+  const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1;
+  line(x1,y1,x2,y2,dark,.85,3);
+  line(x1,y1,x2,y2,col,.55,1);
+  const n=Math.max(2,Math.floor(len/7));
+  for(let i=0;i<=n;i++){
+    const u=i/n, xx=x1+dx*u, yy=y1+dy*u+Math.sin(t*13+i*.85)*1.1;
+    px(xx-2,yy-2,4,4,dark);
+    px(xx-1,yy-1,2,2,col);
+    if(i%2===0) px(xx,yy,1,1,'#ffffff');
+  }
+  px(x2-3,y2-3,6,6,dark); px(x2-2,y2-2,4,4,col); px(x2-1,y2-1,2,2,'#ffffff');
+}
+function drawSkill2Fx(){
+  const p=G.player; if(!p||!p.s2||p.s2.phase!=='active') return;
+  const s=p.s2, def=S2[p.pw.id], d=s.data||{}, fx=s.fx||{}, t=s.t;
+  if(!def) return;
+  const col=def.color, dark=def.dark;
+  if(fx.type==='chain'){
+    const e=s2Find(d.target);
+    const flying=(d.phase==='shoot'||d.phase==='miss');
+    const tx=flying?d.x:(e?e.x:d.x), ty=flying?d.y:(e?e.y-8:d.y);
+    const a=Math.atan2(ty-(p.y-10),tx-p.x);
+    const sx=p.x+Math.cos(a)*9, sy=p.y-10+Math.sin(a)*9;
+    s2DrawChain(sx,sy,tx,ty,col,dark,t);
+    if(e&&!flying){
+      const r=(e.r||10)+8;
+      ring(e.x,e.y-8,r,col,.65+Math.sin(t*8)*.15,1);
+      ring(e.x,e.y-8,r+5,dark,.4,1);
+      line(e.x-r*.7,e.y-8-r*.4,e.x+r*.7,e.y-8+r*.4,col,.5,1);
+      line(e.x-r*.7,e.y-8+r*.4,e.x+r*.7,e.y-8-r*.4,col,.5,1);
+      for(let i=0;i<6;i++){
+        const ang=t*2.2+i*TAU/6;
+        px(e.x+Math.cos(ang)*(r+4)-1,e.y-8+Math.sin(ang)*(r+4)-1,2,2,i%2?'#ffffff':col);
+      }
+    }
+  } else if(fx.type==='mark'){
+    const x=d.x,y=d.y,k=.5+.5*Math.sin(t*7);
+    pxell(x,y+9,14,4,'#000',.25);
+    ring(x,y,9+k*2,col,.85,2); ring(x,y,20,col,.3,1);
+    for(let i=0;i<4;i++){
+      const ang=t*1.4+i*Math.PI/2;
+      px(x+Math.cos(ang)*15-1,y+Math.sin(ang)*15-1,3,3,i%2?'#ffffff':col);
+    }
+    px(x-1,y-1,2,2,'#ffffff');
+  } else if(fx.type==='square'){
+    const x=d.x,y=d.y-8,R=30;
+    line(x-R,y-R*.55,x+R,y-R*.55,col,.65,1);
+    line(x-R,y+R*.55,x+R,y+R*.55,col,.65,1);
+    line(x-R,y-R*.55,x-R,y+R*.55,col,.65,1);
+    line(x+R,y-R*.55,x+R,y+R*.55,col,.65,1);
+    for(let i=0;i<4;i++) px(x+(i%2?R:-R)-2,y+(i<2?-R*.55:R*.55)-2,4,4,'#ffe9a8');
+    ring(x,y,10+Math.sin(t*6)*2,col,.5,1);
+    for(let j=0;j<3;j++) px(x-8+j*8,y+Math.sin(t*8+j)*3,2,2,col);
+  } else if(fx.type==='zone'){
+    const x=fx.follow?p.x:d.x, y=fx.follow?p.y-8:d.y, r=fx.r||d.r||56;
+    ring(x,y,r,col,.45,1); ring(x,y,Math.max(2,r-6),dark,.35,1);
+    pxell(x,y,r*.8,r*.35,col,.055);
+    for(let i=0;i<8;i++){
+      const ang=t*1.2+i*TAU/8;
+      px(x+Math.cos(ang)*r-1,y+Math.sin(ang)*r*.6-1,2,2,i%2?'#ffffff':col);
+    }
+    for(let j=-2;j<=2;j++)
+      line(x-r*.7,y+j*9+Math.sin(t*4+j)*2,x+r*.7,y+j*9+Math.sin(t*4+j)*2,col,.10,1);
+  } else if(fx.type==='dice'){
+    const x=d.x,y=d.y,q=Math.abs(Math.sin(d.spin||t*10));
+    px(x-5,y-5,10,10,dark); px(x-4,y-4,8,8,'#f4eaff');
+    px(x-4,y-4,8,1,'#ffffff'); px(x-4,y-4,1,8,'#ffffff');
+    px(x-1-q*2,y-1,2,2,col); px(x+2,y+1+q,2,2,col); px(x-1,y+2,1,1,dark);
+  }
+}
 function nearestEnemy(x,y,maxD){
   let best=null, bd=maxD*maxD;
   for(const e of G.enemies){ const d=dist2(x,y,e.x,e.y); if(d<bd){ bd=d; best=e; } }
@@ -2852,14 +2925,22 @@ function trySkill(p){
 }
 /* ===== 二技能：参考 shishijiushishi 仓库的二段式实现 =====
    秩序之权 / 战意之权不复制，沿用本地 legacySkill2。 */
-function freshS2(){ return {cd:0, phase:'idle', t:0, dur:0, data:null}; }
-function s2Clear(p){ const s=p.s2; s.phase='idle'; s.t=0; s.dur=0; s.data=null; }
+function freshS2(){ return {cd:0, phase:'idle', t:0, dur:0, data:null, fx:null}; }
+function s2Clear(p){ const s=p.s2; s.phase='idle'; s.t=0; s.dur=0; s.data=null; s.fx=null; }
 function s2Target(p,maxD){
   if(p.tgt && !p.tgt.dead && dist2(p.tgt.x,p.tgt.y,p.x,p.y)<maxD*maxD) return p.tgt;
   let best=null, bd=maxD*maxD;
   for(const e of G.enemies){ if(e.dead) continue; const q=dist2(e.x,e.y,p.x,p.y); if(q<bd){ bd=q; best=e; } }
   return best;
 }
+/* ===== 二技能特效辅助：照抄 shishijiushishi 原文 ===== */
+function s2Find(id){ return G.enemies.find(o=>o.id===id&&!o.dead)||null; }
+function s2Burst(x,y,col,n,sp){
+  for(let i=0;i<(n||10);i++)
+    G.parts.push(mkPart(x+rand(-5,5),y+rand(-5,5),i%3===0?'#ffffff':col,
+      {sp:rand(30,sp||120),life:rand(.2,.5),size:i%4===0?2:1,g:20}));
+}
+function s2Ring(x,y,r,col,dur){ G.slashes.push({x,y,a:0,arc:TAU,r,t:0,dur:dur||.4,color:col}); }
 function s2Area(x,y,r,dmg,color,kb,trueDmg){
   G.slashes.push({x,y,a:0,arc:TAU,r,t:0,dur:.40,color:color||'#fff'});
   burst(x,y,14,color||'#fff',150);
@@ -2875,7 +2956,7 @@ function s2Area(x,y,r,dmg,color,kb,trueDmg){
 const S2 = {
   karma:{ name:'业锁·因果链', btn:'业锁', secondHint:'拉回', cd:2.6, dur:3.1, color:'#c9a6ff', dark:'#5b2bbf',
     desc:'发射紫色锁链束缚并抓取敌人，期间持续造成抓取伤害；再次点击二技能把目标拉向自己，自动衔接一次伤害提升且带强击退的普攻。',
-    first(p,s){ const e=s2Target(p,250); s.data={target:e?e.id:null,acc:0};
+    first(p,s){ const e=s2Target(p,250); s.data={target:e?e.id:null,acc:0,phase:'bound',x:p.x,y:p.y-8}; s.fx={type:'chain'};
       if(e){ e.slow=Math.max(e.slow,3.1); e.weak=Math.max(e.weak,3.1); }
       G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:56,t:0,dur:.30,color:'#c9a6ff'}); },
     tick(p,s,dt){ const d=s.data; if(!d||d.target==null) return;
@@ -2890,7 +2971,7 @@ const S2 = {
   },
   time:{ name:'刻印回溯', btn:'刻印', secondHint:'回溯', cd:2.8, dur:4.5, color:'#ffcc44', dark:'#a06a10',
     desc:'在原地留下时之刻印并短暂加速；4.5 秒内再按一次二技能回溯到刻印、回复生命，并在起点与终点各爆发一次时之刃。',
-    first(p,s){ s.data={x:p.x,y:p.y-8,acc:0}; p.inv=Math.max(p.inv,.2);
+    first(p,s){ s.data={x:p.x,y:p.y-8,acc:0}; s.fx={type:'mark'}; p.inv=Math.max(p.inv,.2);
       G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:52,t:0,dur:.35,color:'#ffcc44'}); },
     tick(p,s,dt){ const d=s.data; if(!d) return; d.acc+=dt;
       if(d.acc>=.5){ d.acc=0; G.parts.push(mkPart(d.x,d.y,'#ffcc44',{sp:20,life:.3,size:2,g:-10})); } },
@@ -2898,7 +2979,7 @@ const S2 = {
   },
   life:{ name:'荆棘缚环', btn:'藤环', secondHint:'引爆', cd:2.4, dur:2.4, color:'#58e08a', dark:'#1f7a4a',
     desc:'藤环束缚目标并持续吸取生命；再按一次二技能提前引爆，对周围造成伤害与击退并治疗自身。身边没敌人时改为生息脉冲。',
-    first(p,s){ const e=s2Target(p,240); s.data={target:e?e.id:null,acc:0,self:!e};
+    first(p,s){ const e=s2Target(p,240); s.data={target:e?e.id:null,acc:0,self:!e,phase:'bound',x:p.x,y:p.y-8}; s.fx=e?{type:'chain'}:{type:'zone',r:56,follow:true};
       if(e){ e.slow=Math.max(e.slow,2.4); }
       G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:60,t:0,dur:.32,color:'#58e08a'}); },
     tick(p,s,dt){ const d=s.data; if(!d) return; d.acc+=dt;
@@ -2912,7 +2993,7 @@ const S2 = {
     desc:'掷出巨型骰子，飞行途中再按一次二技能可提前开骰；点数 ≥4 触发大范围裁决爆炸，≤3 改为全场轰击并累积命运点数。',
     first(p,s){ const e=s2Target(p,260); const a=e?Math.atan2((e.y-8)-(p.y-10),e.x-p.x):p.aimAng;
       s.data={face:randi(1,6),x:p.x+Math.cos(a)*40,y:p.y-8+Math.sin(a)*40,
-        tx:e?e.x:p.x+Math.cos(a)*160,ty:e?e.y-8:p.y-8+Math.sin(a)*160,t:0};
+        tx:e?e.x:p.x+Math.cos(a)*160,ty:e?e.y-8:p.y-8+Math.sin(a)*160,t:0}; s.fx={type:'dice'};
       G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:44,t:0,dur:.3,color:'#ff6fa8'}); },
     tick(p,s,dt){ const d=s.data; if(!d) return; d.t+=dt;
       const k=clamp(d.t/.32,0,1); d.x=lerp(d.x,d.tx,k*.35); d.y=lerp(d.y,d.ty,k*.35);
@@ -2923,7 +3004,7 @@ const S2 = {
     desc:'向瞄准方向投放裂隙标记；再按一次二技能瞬移到标记，起点与终点各爆一次范围伤害并获得短暂无敌。',
     first(p,s){ const a=p.aimAng;
       s.data={x:clamp(p.x+Math.cos(a)*180,20,G.arena.w-20),
-              y:clamp(p.y-8+Math.sin(a)*180,20,G.arena.h-20)};
+              y:clamp(p.y-8+Math.sin(a)*180,20,G.arena.h-20)}; s.fx={type:'mark'};
       G.slashes.push({x:s.data.x,y:s.data.y,a:0,arc:TAU,r:52,t:0,dur:.4,color:'#35d6ff'}); },
     tick(p,s,dt){ const d=s.data; if(!d) return;
       if(Math.random()<.3) G.parts.push(mkPart(d.x+rand(-14,14),d.y+rand(-14,14),'#c8f6ff',{sp:16,life:.3,size:1,g:0})); },
@@ -2931,7 +3012,7 @@ const S2 = {
   },
   void:{ name:'归零脉冲', btn:'归零', secondHint:'引爆', cd:2.9, dur:3, color:'#b07bff', dark:'#2a1c40',
     desc:'展开跟随自身的归零场，持续抹除敌方弹幕并造成真实伤害；再按一次二技能提前引爆，造成范围真伤与击退。',
-    first(p,s){ s.data={r:90,acc:0}; G.zones.push({kind:'void',x:p.x,y:p.y,r:90,t:0,dur:3,color:'#b07bff',follow:true}); },
+    first(p,s){ s.data={x:p.x,y:p.y-8,r:90,acc:0}; s.fx={type:'zone',follow:true}; G.zones.push({kind:'void',x:p.x,y:p.y,r:90,t:0,dur:3,color:'#b07bff',follow:true}); },
     tick(p,s,dt){ const d=s.data; if(!d) return;
       G.bullets=G.bullets.filter(b=>b.owner!=='e'||dist2(b.x,b.y,p.x,p.y-8)>d.r*d.r);
       d.acc+=dt; if(d.acc>=.4){ d.acc=0;
@@ -3250,8 +3331,9 @@ function trySkill2(p){
   const s=p.s2;
   if(s.phase==='active'){ if(def.second) def.second(p,s); return; }
   if(s.cd>0) return;
-  s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null;
+  s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null; s.fx=null;
   def.first(p,s);
+  s2Ring(p.x,p.y-8,18,def.color,.45); s2Burst(p.x,p.y-8,def.color,10,110);
   toast(def.name + (def.secondHint ? ' · 再按 R '+def.secondHint : ''));
   flash(def.color||p.pw.color,.28);
 }
@@ -3887,6 +3969,7 @@ function renderBattle(){
       pxo(e.x+Math.cos(ang)*(r-2)-1, e.y-8+Math.sin(ang)*(r-2)-1, 1, 1, p2.pw.color, a*.9);
     }
   }
+  drawSkill2Fx();
   c.restore();
   drawFx();
   drawTransit();
