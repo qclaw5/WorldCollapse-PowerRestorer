@@ -148,6 +148,8 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
   font-size:clamp(9px,2.2vmin,12px);letter-spacing:.06em;backdrop-filter:blur(2px);cursor:pointer;position:relative}
 .pbtn small{display:block;font-size:.72em;color:var(--dim);letter-spacing:.04em;margin-top:1px}
 .pbtn:active{transform:scale(.93)}
+/* 格挡键浮在按键区上方，不占网格：原有 5 键位置保持不变 */
+#b-guard{position:absolute;left:0;bottom:100%;margin-bottom:clamp(8px,2vmin,16px)}
 .pbtn.atk{width:clamp(66px,16vmin,96px);height:clamp(66px,16vmin,96px);border-color:var(--accent);
   background:radial-gradient(circle at 50% 35%,var(--accent-soft),rgba(18,16,32,.8));box-shadow:0 0 20px var(--accent-soft)}
 .pbtn.sk{border-color:var(--accent)}
