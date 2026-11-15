@@ -4,11 +4,26 @@
    以下方括号内全部为参考仓库原文，逐字复制，未做任何改写或适配。
    左侧数字是原文件行号。
 
-   【本地适配说明 · 非原文】
-   2026-11-15 用户明确指令「开启给我改存档」，故本项目已采用原文 2400-2402 / 2442-2483
-   的 ensureDevUnlock 行为：开启密钥即写存档解锁全部关卡 / 技能 / 货币（99999/9999），
-   每次启动自动补齐，关闭模式不回收。仍与原文不同处：招式只持有 1 种（防止普攻消失）、
-   密钥明文写在页面并自动预填、无装备 / 药水 / 大厅系统。
+   【本地同步说明 · 非原文 · 2026-11-15 二次同步】
+   用户指令「管理员会改存档不能不改，直接完全同步 shishijiushishi 仓库逻辑」。
+   现已把开发者模式整套控制流同步为参考原文：
+   - Settings 对象（2151-2165）：data 含 hitShake/skill2On/fxTier/devMode，
+     load/save/toggle 持久化到 collapse_world_settings_v1；devModeOn() 读它。
+   - isTypingTarget(2406-2411) + setupInput 的 keydown/keyup 输入保护(2615-2649)：
+     在密钥输入框打字不再误触发 R/F/Q/E 等游戏热键。
+   - devAudit(2421-2441) 改为「缺失校验」语义（本地映射：关卡/技能/招式/货币），
+     返回 {ok, issues, counts, devMode}；保留本地合法性校验。
+   - ensureDevUnlock(2442-2474)：补齐 → Save.save() 写存档 → 刷新 UI → devAudit → toast。
+     **开启即写存档保持不变**（用户强调「不能不改」）；启动(10094)与
+     Save.reset(2395-2396) 后自动补齐；关闭(2485-2490)不回收已解锁内容。
+   - tryEnableDevMode(2475-2484)：trim+toLowerCase 比对，写 Settings/ADMIN_KEY，
+     ensureDevUnlock(true)，syncSettingsUI + syncDevUI + toast。
+   - syncDevUI(2491-2517) 富文本状态栏 + 按钮显隐；devKeyRejected(2518-2525) 错误态；
+     绑定(9880-9902)：Enter 键、input 清 err、开启/重新补齐/关闭。
+   - updateDebugPanel(9765-9837) 结构同步：多行只读网格 + 存档/设置/调试开关原始数据。
+   唯三处本地映射（用户既有硬约定，不可改）：
+     招式同时只持有 1 种（防止普攻消失）、密钥明文预填、不引入装备/药水/大厅系统。
+   参考的 #btn-dev-refresh 由本地已有 #dbg-refresh 承担（零 HTML 布局改动）。
    ============================================================================ */
 
 
