@@ -242,7 +242,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       </div>
       <div class="detail">
         <div class="detail-title">开 发 者 模 式</div>
-        <p class="skill-desc">密钥 <b>yishidadaniubi</b>（已自动填好，直接点「开 启」即可）；开启状态持久化保存；关闭模式不会回收已解锁内容。</p>
+        <p class="skill-desc">密钥 <b>yishidadaniubi</b>（已自动填好，直接点「开 启」即可）；开启即解锁全部关卡 / 技能 / 货币并写入存档，每次启动自动补齐；关闭模式不回收已解锁内容；招式始终只持有 1 种。</p>
         <div class="dev-keyrow">
           <input id="dev-key" type="text" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="输入小写拼音密钥">
           <button class="pxbtn primary" id="btn-dev-unlock">开 启</button>
@@ -257,6 +257,8 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <button class="pxbtn" id="dbg-ult">充满大招</button>
           <button class="pxbtn" id="dbg-collapse">崩解度归零</button>
           <button class="pxbtn" id="dbg-unlock">解锁全部关卡</button>
+          <button class="pxbtn" id="dbg-audit">解锁校验 · 只读</button>
+          <button class="pxbtn primary" id="dbg-refresh">重新补齐 · 写存档</button>
           <button class="pxbtn ghost" id="dbg-reset">清空存档</button>
         </div>
         <div class="detail-title" style="margin-top:10px">装 备 · 测 试 模 式</div>
@@ -897,8 +899,11 @@ function adminLoad(){
 function adminSave(){ try{ localStorage.setItem(ADMIN_KEY, JSON.stringify(Admin)); }catch(e){} }
 function devModeOn(){ return Admin.on; }
 function syncDevUI(){
-  const on=devModeOn();
-  const st=$('#dev-state'); if(st) st.textContent = on ? '当前：已开启 · 调试功能可用' : '当前：关闭 · 需要密钥开启';
+  const on=devModeOn(), a=devAudit();
+  const st=$('#dev-state');
+  if(st) st.textContent = '当前：'+(on?'已开启':'关闭')+' · 校验 '+(a.ok?'通过 · 0 项异常':'异常 '+a.issues.length+' 项')
+    +' · 金币 '+a.counts.coins+' · 宝石 '+a.counts.gems+' · 关卡 '+a.counts.done+'/'+a.counts.levels
+    +' · 招式 '+a.counts.scrolls+'/1 · 技能 '+a.counts.skills+'/4 · 开启即解锁全部并写入存档 · 每次启动自动补齐';
   const u=$('#btn-dev-unlock'), c=$('#btn-dev-close'), k=$('#dev-key'), panel=$('#admin-panel');
   if(u) u.classList.toggle('hidden', on);
   if(c) c.classList.toggle('hidden', !on);
@@ -908,23 +913,111 @@ function syncDevUI(){
   t('#dbg-god','无敌','god'); t('#dbg-instakill','一击必杀','instakill'); t('#dbg-nocd','技能无冷却','noCd');
   const g=$('#dbg-equip-gale'); if(g) g.textContent = Admin.gale ? '卸下疾风拳套' : '一键装备疾风拳套';
 }
+/* ===== 开发者模式：开启即解锁全部内容并写入存档（照抄 shishijiushishi ensureDevUnlock） =====
+   本地适配：招式仍只持有 1 种（防止普攻消失）；无装备 / 药水系统；
+   关卡进度只增不减；关闭模式不回收已解锁内容；每次启动自动补齐。 */
+const DEV_WALLET = { coins:99999, gems:9999 };
+function devTargets(){
+  return { levels:LEVELS.map(L=>L.id), skills:SKILL_DEFS.map(x=>x.id), scrolls:SCROLLS.map(x=>x.id) };
+}
+function ensureDevUnlock(verbose){
+  if(!devModeOn()) return devAudit();
+  const t=devTargets(), d=Save.data;
+  const hadDone=Array.isArray(d.done)?d.done.length:0;
+  d.done=t.levels;
+  try{ localStorage.setItem(SAVE_MAX_KEY,String(LEVELS.length)); }catch(e){}
+  const skills=new Set(Array.isArray(d.skills)?d.skills:[]);
+  for(const id of t.skills) skills.add(id);
+  d.skills=[...skills].filter(id=>SKILL_MAP[id]);
+  const cur=Array.isArray(d.scrolls)?d.scrolls[0]:null;
+  d.scrolls=[SCROLL_MAP[cur]?cur:SCROLLS[0].id];
+  d.coins=Math.max(Number(d.coins)||0, DEV_WALLET.coins);
+  d.gems=Math.max(Number(d.gems)||0, DEV_WALLET.gems);
+  /* 货架里已习得 / 已记录的条目换成仍可购买的商品，不重置倒计时与轮次 */
+  try{
+    const s=shopState(), fresh=s.listing.filter(merchantAvailable);
+    for(const id of [...SCROLLS,...SKILL_DEFS].map(x=>x.id).filter(merchantAvailable)){
+      if(fresh.length>=MERCHANT.slots) break;
+      if(!fresh.includes(id)) fresh.push(id);
+    }
+    s.listing=fresh;
+    for(const id of fresh) if(s.stock[id]==null) s.stock[id]=1;
+  }catch(e){}
+  Save.save();
+  try{ buildMap(); }catch(e){}
+  if(G.player && skillLearned('k_guard')) guardState(G.player);
+  try{ syncDevUI(); }catch(e){}
+  try{ updateDebugPanel(); }catch(e){}
+  const a=devAudit();
+  if(verbose) toast('开发者模式已开启 · 全部内容已解锁'+(hadDone<LEVELS.length?' · 关卡 '+hadDone+'→'+LEVELS.length:''));
+  return a;
+}
 function tryEnableDevMode(v){
   if(String(v||'').trim().toLowerCase()!==DEV_KEY) return false;
-  Admin.on=true; adminSave(); syncDevUI(); toast('开发者模式已开启');
+  Admin.on=true; adminSave(); ensureDevUnlock(true); syncDevUI();
   return true;
 }
-function disableDevMode(){ Admin.on=false; adminSave(); syncDevUI(); toast('开发者模式已关闭'); }
+function disableDevMode(){ Admin.on=false; adminSave(); syncDevUI(); toast('开发者模式已关闭 · 已解锁内容保留'); }
 function updateDebugPanel(){
   const el=$('#dbg-grid'); if(!el) return;
-  const p=G.player, s=p&&p.s2;
-  el.innerHTML = [
-    '模式 '+(devModeOn()?'开启':'关闭')+' · 无敌 '+(Admin.god?'开':'关')+' · 一击必杀 '+(Admin.instakill?'开':'关')+' · 无冷却 '+(Admin.noCd?'开':'关')+' · 疾风拳套 '+(Admin.gale?'已装备':'未装备'),
-    '生命 '+(p?Math.ceil(p.hp)+' / '+p.hpMax:'—')+' · 大招 '+(p?Math.floor(p.ult)+'%':'—')+' · 崩解度 '+Math.floor(G.collapse)+'%',
-    '关卡 '+(G.levelId||'—')+' · 地图 '+(G.map?G.map.name:'—')+' · 敌人 '+G.enemies.filter(e=>!e.dead).length+' · 已修复 '+Save.data.done.length+' / '+LEVELS.length,
-    '二技能 '+(s?'CD '+s.cd.toFixed(1)+'s · '+s.phase:'—')+' · 一技能 '+(p?Math.ceil(p.skillCd)+'s':'—'),
-    '命运点数 '+Math.round(G.fp)+' · 塔罗 '+G.tarot.length+' · 招式 '+(Save.data.scrolls||[]).length+' / 6 · 技能 '+(Save.data.skills||[]).length+' / 4'
-  ].join('<br>');
+  const p=G.player, s=p&&p.s2, a=devAudit();
+  const sh=(Save.data.shop&&typeof Save.data.shop==='object')?Save.data.shop:null;
+  const sec=Math.max(0,Math.ceil(((sh&&Number(sh.nextAt))||0)-Date.now())/1000);
+  const esc=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const rows=[
+    ['屏幕',G.screen], ['权能',p?p.pw.name:'—'], ['大招',G.ult||'—'],
+    ['帧率',Math.round(G.fps||0)+' fps'], ['崩解度',Math.floor(G.collapse)+'%'],
+    ['关卡',(G.levelId||'—')+' · '+(G.map?G.map.name:'—')],
+    ['阶段',G.phase||'—'], ['敌人',G.enemies.filter(e=>!e.dead).length],
+    ['子弹',G.bullets.length], ['粒子',G.parts.length], ['冲击环 / 斩击',G.slashes.length],
+    ['生命',p?Math.ceil(p.hp)+' / '+p.hpMax:'—'], ['大招能量',p?Math.round(p.ult)+'%':'—'],
+    ['玩家坐标',p?Math.round(p.x)+','+Math.round(p.y):'—'],
+    ['相机',Math.round(G.cam.x)+','+Math.round(G.cam.y)],
+    ['命运点数',Math.round(G.fp||0)], ['塔罗槽',(G.tarot||[]).length],
+    ['二技能',s?('CD '+s.cd.toFixed(1)+'s · '+s.phase+' · 特效 '+(s.fx?s.fx.type:'—')):'—'],
+    ['一技能',p?Math.ceil(p.skillCd)+'s':'—'],
+    ['时停剩余',(G.freeze||0).toFixed(2)+' s'],
+    ['无敌 / 必杀 / 无冷却',(Admin.god?'开':'关')+' / '+(Admin.instakill?'开':'关')+' / '+(Admin.noCd?'开':'关')],
+    ['疾风拳套',Admin.gale?'已装备':'未装备'],
+    ['金币 / 宝石',a.counts.coins+' G / '+a.counts.gems+' ◆'],
+    ['招式 / 技能',a.counts.scrolls+' / 1 · '+a.counts.skills+' / 4'],
+    ['已修复关卡',a.counts.done+' / '+a.counts.levels],
+    ['商人货架','第 '+((sh&&sh.seq)||0)+' 轮 · 上架 '+a.counts.listing+'/'+MERCHANT.slots+' 种 · 补货 '+sec+'s'],
+    ['开发者模式',(a.devMode?'已开启':'关闭')+' · 密钥校验'],
+    ['解锁校验',(a.ok?'齐全 · 0 项异常':'异常 '+a.issues.length+' 项：'+a.issues.join(' / '))],
+    ['存档原始数据',JSON.stringify(Save.data)],
+    ['设置原始数据',ADMIN_KEY+' → '+JSON.stringify(Admin)]
+  ];
+  el.innerHTML=rows.map(r=>'<div>'+esc(r[0])+'<b>'+esc(r[1])+'</b></div>').join('');
 }
+/* ===== 开发者模式校验：照抄 shishijiushishi devAudit 的只读思路 =====
+   差异：绝不写存档（开启模式不自动解锁）；招式上限固定 1；无装备/药水系统。 */
+function devAudit(){
+  const d=Save.data, issues=[];
+  const scrolls=Array.isArray(d.scrolls)?d.scrolls:[];
+  const skills=Array.isArray(d.skills)?d.skills:[];
+  const done=Array.isArray(d.done)?d.done:[];
+  const coins=Number(d.coins??0), gems=Number(d.gems??0);
+  const counts={scrolls:scrolls.length, skills:skills.length, done:done.length,
+    levels:LEVELS.length, coins, gems, listing:0, slots:MERCHANT.slots};
+  if(scrolls.length>1) issues.push('招式超过 1 种');
+  if(scrolls.some(id=>!SCROLL_MAP[id])) issues.push('未知招式');
+  if(skills.some(id=>!SKILL_MAP[id])) issues.push('未知技能');
+  if(skills.includes('k_parry')&&!skills.includes('k_guard')) issues.push('弹反缺格挡前置');
+  if(done.length>LEVELS.length) issues.push('关卡进度越界');
+  if(!Number.isFinite(coins)||coins<0) issues.push('金币异常');
+  if(!Number.isFinite(gems)||gems<0) issues.push('宝石异常');
+  const sh=(d.shop&&typeof d.shop==='object'&&!Array.isArray(d.shop))?d.shop:null;
+  const listing=sh&&Array.isArray(sh.listing)?sh.listing:[];
+  counts.listing=listing.length;
+  if(listing.length>MERCHANT.slots) issues.push('货架超过 '+MERCHANT.slots+' 格');
+  if(listing.some(id=>!(SCROLL_MAP[id]||SKILL_MAP[id]))) issues.push('货架含非法商品');
+  const cds=Object.keys(S2).map(k=>S2[k].cd);
+  if(cds.some(c=>c>3)) issues.push('二技能 CD 超过 3 秒');
+  if(new Set(cds).size<2) issues.push('二技能 CD 全部相同');
+  return {ok:issues.length===0, issues, counts, devMode:devModeOn()};
+}
+
 function adminUnlockAll(){
   Save.data.done = LEVELS.map(L=>L.id);
   try{ localStorage.setItem(SAVE_MAX_KEY, String(LEVELS.length)); }catch(e){}
@@ -4418,6 +4511,8 @@ function setupUI(){
   $('#dbg-ult').addEventListener('click', ()=>{ if(G.player) G.player.ult=100; updateDebugPanel(); toast('大招已充满'); });
   $('#dbg-collapse').addEventListener('click', ()=>{ G.collapse=0; Save.data.collapse=0; Save.save(); updateDebugPanel(); toast('崩解度已归零'); });
   $('#dbg-unlock').addEventListener('click', ()=>{ adminUnlockAll(); updateDebugPanel(); });
+  $('#dbg-audit').addEventListener('click', ()=>{ const a=devAudit(); updateDebugPanel(); toast(a.ok?'开发者 · 校验通过 · 0 项异常':'开发者 · 异常 '+a.issues.length+' 项：'+a.issues.join(' / ')); });
+  $('#dbg-refresh').addEventListener('click', ()=>{ ensureDevUnlock(true); updateDebugPanel(); });
   $('#dbg-reset').addEventListener('click', ()=>{
     if(confirm('清空存档？权能、进度与成绩会重置。')){
       Save.reset(); G.power=null; G.ult=null; G.collapse=20; G.running=false;
@@ -4454,7 +4549,7 @@ function boot(){
   const d=Save.data;
   if(d.power){ G.power=d.power; G.ult=d.ult||ULTS[0].id; G.collapse=d.collapse||20; syncAccent(); }
   $('#btn-continue').style.display = '';
-  adminLoad(); syncDevUI(); updateDebugPanel();
+  adminLoad(); if(devModeOn()) ensureDevUnlock(false); syncDevUI(); updateDebugPanel();
   showScreen('title');
   requestAnimationFrame(loop);
 }

@@ -1,0 +1,340 @@
+/* ============================================================================
+   原文摘录 · wuzayishi/shishijiushishi  main/index.html
+   内容：开发者/管理员模式（密钥、解锁校验、调试页面全部按钮、实时状态面板）
+   以下方括号内全部为参考仓库原文，逐字复制，未做任何改写或适配。
+   左侧数字是原文件行号。
+
+   【本地适配说明 · 非原文】
+   2026-11-15 用户明确指令「开启给我改存档」，故本项目已采用原文 2400-2402 / 2442-2483
+   的 ensureDevUnlock 行为：开启密钥即写存档解锁全部关卡 / 技能 / 货币（99999/9999），
+   每次启动自动补齐，关闭模式不回收。仍与原文不同处：招式只持有 1 种（防止普攻消失）、
+   密钥明文写在页面并自动预填、无装备 / 药水 / 大厅系统。
+   ============================================================================ */
+
+
+/* ---------- [1] 设置页 · 开发者模式卡片（密钥输入 / 状态 / 进入调试页） · 原文 696-707 ---------- */
+  696 |         <div class="setcard" id="dev-card">
+  697 |           <h3>开 发 者 模 式</h3>
+  698 |           <div class="note">输入密钥后开启开发者模式。开启瞬间<b>默认解锁全部内容</b>：所有卷轴技能（格挡 / 弹反 / 冲刺斩击 / 突刺）、普攻招式卷轴、全部装备与武器、护甲、饰品，以及全部药水道具，并补足金币与宝石。<br><b>密钥已改为纯小写拼音全拼</b>（六个汉字的拼音连写：全小写、无空格、无声调、无大写），输入时只需英文键盘，<b>不会调用中文输入法或安全键盘</b>；设备自动首字母大写也能通过。旧的中文密钥已停用。<br>开启状态会持久化保存，之后每次启动都会自动补齐解锁；关闭模式<b>不会回收</b>已解锁的内容。已解锁内容写进存档，重置存档后只要模式仍开启，启动时也会重新补齐。</div>
+  699 |           <div class="dev-keyrow">
+  700 |             <input id="dev-key" type="text" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="输入小写拼音密钥" aria-label="开发者模式密钥（纯小写拼音）">
+  701 |             <button class="pxbtn primary" id="btn-dev-unlock">开 启</button>
+  702 |             <button class="pxbtn hidden" id="btn-dev-refresh">重 新 补 齐</button>
+  703 |             <button class="pxbtn ghost hidden" id="btn-dev-close">关 闭 模 式</button>
+  704 |           </div>
+  705 |           <div class="dev-state" id="dev-state">当前：关闭 · 需要密钥开启</div>
+  706 |           <div class="setbtns"><button class="pxbtn primary" id="btn-open-debug">打 开 调 试 页 面</button></div>
+  707 |         </div>
+
+/* ---------- [2] 调试页面 · 全部按钮与原始数据区 · 原文 715-799 ---------- */
+  715 |     <section class="screen hidden" id="scr-debug">
+  716 |       <div class="topbar">
+  717 |         <div class="sect-h" style="margin:0">调 试 页 面<small>实时状态每 0.2 秒刷新 · 从设置页进入</small></div>
+  718 |         <button class="pxbtn ghost" id="btn-debug-settings" style="padding:.5em .8em;font-size:clamp(10px,2.4vmin,13px)">返回设置</button>
+  719 |       </div>
+  720 |       <div class="setpage">
+  721 |         <div class="setcard">
+  722 |           <h3>实 时 状 态</h3>
+  723 |           <div class="dbg-grid" id="dbg-grid"></div>
+  724 |         </div>
+  725 |         <div class="setcard">
+  726 |           <h3>调 试 操 作</h3>
+  727 |           <div class="setbtns">
+  728 |             <button class="pxbtn" id="dbg-hitshake">预览击中震动</button>
+  729 |             <button class="pxbtn" id="dbg-heal">回满生命</button>
+  730 |             <button class="pxbtn" id="dbg-ult">充满大招</button>
+  731 |             <button class="pxbtn" id="dbg-collapse">崩解度归零</button>
+  732 |             <button class="pxbtn" id="dbg-unlock">解锁全部关卡</button>
+  733 |             <button class="pxbtn ghost" id="dbg-reset">清空存档</button>
+  734 |           </div>
+  735 |           <div class="note" id="dbg-note" style="margin-top:8px">调试操作直接影响当前运行与存档，请谨慎使用。</div>
+  736 |         </div>
+  737 |         <div class="setcard">
+  738 |           <h3>装 备 系 统 · 测 试</h3>
+  739 |           <div class="setbtns">
+  740 |             <button class="pxbtn" id="dbg-coins">金币 +500</button>
+  741 |             <button class="pxbtn" id="dbg-gems">宝石 +10</button>
+  742 |             <button class="pxbtn primary" id="dbg-equip-gale">一键装备疾风拳套</button>
+  743 |             <button class="pxbtn" id="dbg-armor-balance">护甲平衡明细</button>
+  744 |           </div>
+  745 |           <div class="note" id="dbg-armor-list" style="margin-top:8px">给货币可直接在神秘商人处购买；一键装备用于快速验证「无攻速上限 / 点击越快伤害越低」的测试效果。</div>
+  746 |         </div>
+  747 |         <div class="setcard">
+  748 |           <h3>刀 光 同 步 · 测 试</h3>
+  749 |           <div class="setbtns">
+  750 |             <button class="pxbtn primary" id="dbg-blade-sync">刀光同步校验</button>
+  751 |             <button class="pxbtn" id="dbg-blade-swing">连续挥砍演示</button>
+  752 |           </div>
+  753 |           <div class="note" id="dbg-blade-list" style="margin-top:8px">校验刀光圆心、角度、半径是否与武器本体一致；连续挥砍用于快速观察刀光是否跟刀。</div>
+  754 |         </div>
+  755 |         <div class="setcard">
+  756 |           <h3>角 色 特 效 · 测 试</h3>
+  757 |           <div class="setbtns">
+  758 |             <button class="pxbtn primary" id="dbg-fx-check">角色特效校验</button>
+  759 |             <button class="pxbtn" id="dbg-fx-showcase">全状态展示</button>
+  760 |           </div>
+  761 |           <div class="note" id="dbg-fx-list" style="margin-top:8px">校验七种权能氛围、六种怪物状态与三档强度，并排查 NaN 参数；全状态展示会一次性叠加所有角色特效供观察。</div>
+  762 |         </div>
+  763 |         <div class="setcard">
+  764 |           <h3>消 耗 品 · 测 试</h3>
+  765 |           <div class="setbtns">
+  766 |             <button class="pxbtn" id="dbg-consum">发全部消耗品 ×2</button>
+  767 |             <button class="pxbtn primary" id="dbg-scroll-all">记录全部招式</button>
+  768 |             <button class="pxbtn" id="dbg-consum-info">消耗品平衡明细</button>
+  769 |           </div>
+  770 |           <div class="note" id="dbg-consum-list" style="margin-top:8px">进战斗按 B 打开背包饮用药水；卷轴用掉即销毁，招式永久保留并随机进入普攻。</div>
+  771 |         </div>
+  772 |         <div class="setcard">
+  773 |           <h3>技 能 卷 轴 · 测 试</h3>
+  774 |           <div class="setbtns">
+  775 |             <button class="pxbtn primary" id="dbg-skill-all">习得全部技能</button>
+  776 |             <button class="pxbtn" id="dbg-skill-check">技能校验</button>
+  777 |             <button class="pxbtn" id="dbg-guard-hit">模拟格挡成功</button>
+  778 |           </div>
+  779 |           <div class="note" id="dbg-skill-list" style="margin-top:8px">一键习得 4 个技能后，战斗中按 F 格挡；校验会检查前置关系、格挡条边界、四技能触发条件与刀光同步。</div>
+  780 |         </div>
+  781 |         <div class="setcard">
+  782 |           <h3>神 秘 商 人 · 测 试</h3>
+  783 |           <div class="setbtns">
+  784 |             <button class="pxbtn primary" id="dbg-shop-refresh">立即补货（免费）</button>
+  785 |             <button class="pxbtn" id="dbg-shop-gem">宝石刷新 · 2 ◆</button>
+  786 |             <button class="pxbtn" id="dbg-shop-sellout">清空本轮库存</button>
+  787 |             <button class="pxbtn" id="dbg-shop-check">货架校验</button>
+  788 |           </div>
+  789 |           <div class="note" id="dbg-shop-list" style="margin-top:8px">补货会重抽本轮上架商品、重置库存并播放商人补货动画；清空库存用于快速查看售罄拦截。</div>
+  790 |         </div>
+  791 |         <div class="setcard">
+  792 |           <h3>存 档 / 设 置 原 始 数 据</h3>
+  793 |           <div class="dbg-raw" id="dbg-raw">—</div>
+  794 |           <div class="dbg-raw" id="dbg-settings" style="color:#ffe9a8">—</div>
+  795 |         </div>
+  796 |       </div>
+  797 |       <div class="foot">
+  798 |         <button class="pxbtn ghost" id="btn-debug-back">返 回 设 置</button>
+  799 |         <button class="pxbtn primary" id="btn-debug-hall">返 回 大 厅</button>
+
+/* ---------- [3] 开发者模式逻辑：DEV_KEY / devAudit / ensureDevUnlock / 开启关闭 / syncDevUI · 原文 2399-2525 ---------- */
+ 2399 | /* ============================================================
+ 2400 |    开发者模式：密钥开启 → 默认解锁全部卷轴技能 / 装备 / 武器 / 道具
+ 2401 |    解锁结果写进存档；开启状态写进设置，每次启动都会自动补齐。
+ 2402 |    ============================================================ */
+ 2403 | /* 纯小写拼音全拼：不调用中文输入法 / 安全键盘；手机端首字母自动大写也能通过 */
+ 2404 | const DEV_KEY = 'yishidadaniubi';
+ 2405 | const DEV_WALLET = { coins:99999, gems:9999 };
+ 2406 | function isTypingTarget(e){
+ 2407 |   const t=e&&e.target;
+ 2408 |   if(!t) return false;
+ 2409 |   if(t.isContentEditable) return true;
+ 2410 |   return /^(INPUT|TEXTAREA|SELECT)$/.test(String(t.tagName||'').toUpperCase());
+ 2411 | }
+ 2412 | function devModeOn(){ return Settings.data.devMode===true; }
+ 2413 | function devTargets(){
+ 2414 |   return {
+ 2415 |     gear: GEAR_DEFS.map(g=>g.id),
+ 2416 |     skills: CONSUMABLES.filter(c=>c.kind==='skill').map(c=>c.id),
+ 2417 |     scrolls: CONSUMABLES.filter(c=>c.kind==='scroll').map(c=>c.id),
+ 2418 |     potions: CONSUMABLES.filter(c=>c.kind==='potion').map(c=>c.id)
+ 2419 |   };
+ 2420 | }
+ 2421 | function devAudit(){
+ 2422 |   const t=devTargets(), d=Save.data, issues=[];
+ 2423 |   const owned=new Set(Array.isArray(d.owned)?d.owned:[]);
+ 2424 |   const skills=new Set(Array.isArray(d.skills)?d.skills:[]);
+ 2425 |   const rec=new Set(Array.isArray(d.scrolls)?d.scrolls:[]);
+ 2426 |   const inv=(d.items&&typeof d.items==='object')?d.items:{};
+ 2427 |   const missGear=t.gear.filter(id=>!owned.has(id));
+ 2428 |   const missSkill=t.skills.filter(id=>!skills.has(id));
+ 2429 |   const missScroll=t.scrolls.filter(id=>!rec.has(id));
+ 2430 |   const missPotion=t.potions.filter(id=>(inv[id]||0)<BUFF_CAP.stackMax);
+ 2431 |   if(missGear.length) issues.push('装备缺 '+missGear.length+' 件');
+ 2432 |   if(missSkill.length) issues.push('技能缺 '+missSkill.length+' 个');
+ 2433 |   if(missScroll.length) issues.push('招式卷轴缺 '+missScroll.length+' 个');
+ 2434 |   if(missPotion.length) issues.push('药水未补满 '+missPotion.length+' 种');
+ 2435 |   if((Number(d.coins)||0)<DEV_WALLET.coins) issues.push('金币不足');
+ 2436 |   if((Number(d.gems)||0)<DEV_WALLET.gems) issues.push('宝石不足');
+ 2437 |   return { ok:issues.length===0, issues,
+ 2438 |     counts:{ gear:t.gear.length, skills:t.skills.length, scrolls:t.scrolls.length,
+ 2439 |              potions:t.potions.length, owned:owned.size, learned:skills.size, recorded:rec.size },
+ 2440 |     devMode:devModeOn() };
+ 2441 | }
+ 2442 | function ensureDevUnlock(verbose){
+ 2443 |   if(!devModeOn()) return devAudit();
+ 2444 |   const t=devTargets(), d=Save.data;
+ 2445 |   const owned=new Set(Array.isArray(d.owned)?d.owned:[]);
+ 2446 |   for(const id of t.gear) owned.add(id);
+ 2447 |   d.owned=[...owned].filter(id=>GEAR_MAP[id]);
+ 2448 |   const skills=new Set(Array.isArray(d.skills)?d.skills:[]);
+ 2449 |   for(const id of t.skills) skills.add(id);
+ 2450 |   d.skills=[...skills];
+ 2451 |   const rec=new Set(Array.isArray(d.scrolls)?d.scrolls:[]);
+ 2452 |   for(const id of t.scrolls) rec.add(id);
+ 2453 |   d.scrolls=[...rec];
+ 2454 |   const inv=(d.items&&typeof d.items==='object'&&!Array.isArray(d.items))?{...d.items}:{};
+ 2455 |   for(const id of t.potions) inv[id]=BUFF_CAP.stackMax;
+ 2456 |   /* 已记录 / 已习得的卷轴不再囤库存，背包里不会出现「已习得 ×9」 */
+ 2457 |   for(const id of [...t.scrolls,...t.skills]) delete inv[id];
+ 2458 |   d.items=inv;
+ 2459 |   d.coins=Math.max(Number(d.coins)||0, DEV_WALLET.coins);
+ 2460 |   d.gems=Math.max(Number(d.gems)||0, DEV_WALLET.gems);
+ 2461 |   /* 全部解锁后，把货架里已拥有 / 已记录的条目换成当前仍可购买的道具（不动倒计时） */
+ 2462 |   try{ if(typeof merchantAudit==='function' && merchantAudit().stale>0) merchantReroll(); }catch(e){}
+ 2463 |   Save.save();
+ 2464 |   if(G.player && d.skills.includes('k_guard') && typeof guardState==='function') guardState(G.player);
+ 2465 |   if(G.player && typeof computeGearFx==='function') G.player.gearFx=computeGearFx(d.equip);
+ 2466 |   try{ syncWallet(); }catch(e){}
+ 2467 |   try{ if(typeof renderGearPanel==='function') renderGearPanel(); }catch(e){}
+ 2468 |   try{ if(typeof renderBagPanel==='function') renderBagPanel(); }catch(e){}
+ 2469 |   try{ if(typeof updateBagBadge==='function') updateBagBadge(); }catch(e){}
+ 2470 |   try{ if(typeof updateDebugPanel==='function') updateDebugPanel(); }catch(e){}
+ 2471 |   const a=devAudit();
+ 2472 |   if(verbose) toast('开发者 · '+(a.ok?'全部内容已补齐':'补齐完成，仍有 '+a.issues.length+' 项异常'));
+ 2473 |   return a;
+ 2474 | }
+ 2475 | function tryEnableDevMode(key){
+ 2476 |   /* 手机端常自动首字母大写，统一转小写后比对；中文 / 多字 / 少字仍严格拒绝 */
+ 2477 |   const k=String(key==null?'':key).trim().toLowerCase();
+ 2478 |   if(k!==DEV_KEY) return false;
+ 2479 |   Settings.data.devMode=true; Settings.save();
+ 2480 |   ensureDevUnlock(true);
+ 2481 |   syncSettingsUI(); syncDevUI();
+ 2482 |   toast('开发者模式已开启 · 全部内容已解锁');
+ 2483 |   return true;
+ 2484 | }
+ 2485 | function disableDevMode(){
+ 2486 |   Settings.data.devMode=false; Settings.save();
+ 2487 |   const k=$('#dev-key'); if(k) k.value='';
+ 2488 |   syncDevUI();
+ 2489 |   toast('开发者模式已关闭 · 已解锁内容保留');
+ 2490 | }
+ 2491 | function syncDevUI(){
+ 2492 |   const st=$('#dev-state'); if(!st) return;
+ 2493 |   const on=devModeOn(), a=devAudit();
+ 2494 |   st.classList.toggle('on',on);
+ 2495 |   st.classList.remove('err');
+ 2496 |   const u=$('#btn-dev-unlock'), r=$('#btn-dev-refresh'), c=$('#btn-dev-close'), k=$('#dev-key');
+ 2497 |   if(u) u.classList.toggle('hidden',on);
+ 2498 |   if(r) r.classList.toggle('hidden',!on);
+ 2499 |   if(c) c.classList.toggle('hidden',!on);
+ 2500 |   if(k){ k.disabled=on; if(on) k.value=''; k.placeholder=on?'开发者模式已开启':'输入小写拼音密钥'; }
+ 2501 |   if(on){
+ 2502 |     st.innerHTML='<b>已 开 启</b> · 每次启动自动补齐解锁 · 校验 <b>'+
+ 2503 |       (a.ok?'通过 · 0 项异常':'异常 '+a.issues.length+' 项')+'</b><br>'+
+ 2504 |       '金币 <b>'+(Save.data.coins||0)+'</b> · 宝石 <b>'+(Save.data.gems||0)+
+ 2505 |       '</b> · 解锁内容写进存档，关闭模式不会回收。'+
+ 2506 |       '<div class="dev-chips">'+
+ 2507 |         '<span>装备 / 武器 <b>'+a.counts.owned+' / '+a.counts.gear+'</b></span>'+
+ 2508 |         '<span>卷轴技能 <b>'+a.counts.learned+' / '+a.counts.skills+'</b></span>'+
+ 2509 |         '<span>普攻招式 <b>'+a.counts.recorded+' / '+a.counts.scrolls+'</b></span>'+
+ 2510 |         '<span>药水道具 <b>'+a.counts.potions+' 种 × '+BUFF_CAP.stackMax+'</b></span></div>';
+ 2511 |   } else {
+ 2512 |     st.innerHTML='当前：<b>关闭</b> · 密钥为纯小写拼音全拼（无空格 / 无大写 / 无声调），英文键盘直接输入，不调用安全键盘。<br>'+
+ 2513 |       '开启后默认解锁全部卷轴技能、装备、武器与道具。当前存档：装备 <b>'+a.counts.owned+' / '+a.counts.gear+
+ 2514 |       '</b> · 技能 <b>'+a.counts.learned+' / '+a.counts.skills+'</b> · 招式 <b>'+
+ 2515 |       a.counts.recorded+' / '+a.counts.scrolls+'</b>';
+ 2516 |   }
+ 2517 | }
+ 2518 | function devKeyRejected(){
+ 2519 |   const st=$('#dev-state'); if(!st) return;
+ 2520 |   st.classList.add('err');
+ 2521 |   st.classList.remove('on');
+ 2522 |   st.innerHTML='密钥不正确 · 请用小写拼音全拼重新输入后再次点击「开启」。<br>页面不会明文展示密钥；开启前不会改动任何存档内容。';
+ 2523 |   /* 不清空后自动聚焦，避免再次弹起键盘 */
+ 2524 |   const k=$('#dev-key'); if(k) k.value='';
+ 2525 | }
+
+/* ---------- [4] updateDebugPanel：实时状态全部指标 + 原始存档/设置输出 · 原文 9765-9837 ---------- */
+ 9765 | function updateDebugPanel(){
+ 9766 |   const grid=$('#dbg-grid'); if(!grid) return;
+ 9767 |   const p=G.player, P=POWER_MAP[G.power], U=ULT_MAP[G.ult];
+ 9768 |   const rows=[
+ 9769 |     ['屏幕',G.screen],['权能',P?P.name:'—'],['大招',U?U.name:'—'],
+ 9770 |     ['帧率',Math.round(G.fps||0)+' fps'],['崩解度',Math.floor(G.collapse)+'%'],
+ 9771 |     ['击中震动',Settings.data.hitShake?'开':'关'],['顿帧剩余',(G.hitStop||0).toFixed(3)+' s'],
+ 9772 |     ['关卡',G.lv?G.lv.name:'—'],['地图',G.map&&!G.map.hall?G.map.name:(G.hall?G.hall.zone:'—')],
+ 9773 |     ['阶段',G.phase],['敌人',G.enemies.length],['子弹',G.bullets.length],
+ 9774 |     ['粒子',G.parts.length],['冲击环',G.hitRings.length],
+ 9775 |     ['生命',p?Math.ceil(p.hp)+' / '+p.hpMax:'—'],['大招能量',p?Math.round(p.ult)+'%':'—'],
+ 9776 |     ['玩家坐标',p?Math.round(p.x)+','+Math.round(p.y):'—'],
+ 9777 |     ['相机',Math.round(G.cam.x)+','+Math.round(G.cam.y)],
+ 9778 |     ['命运点数',Math.round(G.fp)],['塔罗槽',G.tarot.length],
+ 9779 |     ['空气墙',hallWallY()==null?'—':'墙脚 y='+hallWallY()+' · '+((G.map&&G.map.airWalls)||[]).length+' 面'],
+ 9780 |     ['入墙状态',(G.player&&hallWallY()!=null&&(G.player.y-8)<hallWallY())?'是':'否'],
+ 9781 |     ['击退中',G.enemies.filter(e=>e.kbT>0).length+' 只'],
+ 9782 |     ['闪现预警',G.enemies.filter(e=>e.blinkWarn>0).length+' 只'],
+ 9783 |     ['伪随机种子',String(RNG_SEED)],
+ 9784 |     ['掉落累积',G.dropAcc+' / '+DROP_ACC_MAX],
+ 9785 |     ['场上道具',G.pickups.length+' 个'],
+ 9786 |     ['战利品',p?('暴'+p.loot.crit+' 速'+p.loot.spd+' 盾'+p.loot.shield+' 血'+p.loot.heal):'—'],
+ 9787 |     ['暴击率',p?Math.round(critRateOf(p)*100)+'%':'—'],
+ 9788 |     ['连击状态',(function(){const c=G.combo;return c.state+' · x'+c.count+' · 链'+c.chain+' · 最佳 x'+c.best+' · 补救'+(c.graceUsed?'已用':'可用');})()],
+ 9789 |     ['连击伤害','×'+comboDmgMul().toFixed(2)],
+ 9790 |     ['连击攻速','×'+(1/comboAtkMul()).toFixed(2)],
+ 9791 |     ['非重复校验',(function(){ const n=NONREPEAT;
+ 9792 |       return (n.ok?'通过':'异常 '+n.issues.length+' 项')+' · '+n.total+' 图 / '+n.textures+' 纹理 / '+n.layouts+' 结构'; })()],
+ 9793 |     ['当前地图编码',(function(){ const m=G.map; return m&&!m.hall
+ 9794 |       ? m.layoutId+' / '+m.texId+' / '+m.motifKey+' / '+m.formation : '—'; })()],
+ 9795 |     ['二技能',(function(){const q=G.player;if(!q||!q.s2)return '—';const d=SKILL2[q.pw.id];
+ 9796 |       return (Settings.data.skill2On!==false?'开':'关')+' · '+d.btn+' · '+q.s2.phase+' · CD '+q.s2.cd.toFixed(1)+'s';})()],
+ 9797 |     ['业锁衔接',(function(){const q=G.player;return q&&q.chainSlam?('就绪 x'+(q.chainSlam.used?'已用':'待命中')):'—';})()],
+ 9798 |     ['攻速倍率','×'+(1/lootRate()).toFixed(2)],
+ 9799 |     ['点击阈值',p?(p.clickTh||.14).toFixed(2)+' s':'—'],
+ 9800 |     ['金币 / 宝石',(Save.data.coins||0)+' G / '+(Save.data.gems||0)+' ◆'],
+ 9801 |     ['背包 / 招式',bagCount()+' 件 · 已记录 '+(Save.data.scrolls||[]).length+' / '+SCROLL_IDS.length],
+ 9802 |     ['当前增益',(function(){const l=G.player?buffAgg(G.player).list:[];
+ 9803 |       return l.length?l.map(b=>b.name.replace('药水','')+' '+Math.max(0,b.until-G.time).toFixed(1)+'s').join(' / '):'—';})()],
+ 9804 |     ['上次招式',(function(){const p=G.player;return p&&p.lastMove&&G.time-(p.lastMoveT||-99)<1.2?p.lastMove:'—';})()],
+ 9805 |     ['已购道具',(Save.data.owned||[]).length+' / '+GEAR_DEFS.length],
+ 9806 |     ['商人货架',(function(){const a=merchantAudit();return '第 '+a.seq+' 轮 · 上架 '+a.listing+'/'+a.slots+
+ 9807 |       ' · 限量 '+a.limited+' / 无限 '+a.unlimited+' · 售罄 '+a.sold;})()],
+ 9808 |     ['商人补货',(function(){const a=merchantAudit();return (a.ok?'校验通过':'异常 '+a.issues.length+' 项')+
+ 9809 |       ' · '+a.nextSec+'s 后 · 触发 '+a.reason+' · 宝石刷新 '+MERCHANT.gemCost+' ◆';})()],
+ 9810 |     ['补货动画',MerchantFx.active?('播放中 '+Math.round(MerchantFx.t/MerchantFx.dur*100)+'% · '+MerchantFx.reason):'待机'],
+ 9811 |     ['开发者模式',(devModeOn()?'已开启':'关闭')+' · 密钥校验'],
+ 9812 |     ['解锁校验',(function(){const a=devAudit();return (a.ok?'齐全 · 0 项异常':'缺 '+a.issues.length+' 项')+
+ 9813 |       ' · 装备 '+a.counts.owned+'/'+a.counts.gear+' · 技能 '+a.counts.learned+'/'+a.counts.skills+
+ 9814 |       ' · 招式 '+a.counts.recorded+'/'+a.counts.scrolls;})()],
+ 9815 |     ['装备三槽',(function(){const e=Save.data.equip||{};return ['weapon','armor','trinket']
+ 9816 |       .map(s=>(GEAR_MAP[e[s]]?GEAR_MAP[e[s]].name:'空')).join(' / ');})()],
+ 9817 |     ['装备伤害',(function(){const gf=gearFxOf(p);return '×'+gf.dmg.toFixed(2)+(gf.gale?' · 疾风':'');})()],
+ 9818 |     ['有效生命',playerEHP(14)+' / 重击 '+playerEHP(26)],
+ 9819 |     ['护甲平衡',(GEAR_BALANCE.ok?'通过':'异常 '+GEAR_BALANCE.issues.length+' 项')+' · '+GEAR_BALANCE.total+' 件'],
+ 9820 |     ['刀光同步',(function(){const c=bladeSyncCheck();return (c.ok?'通过':'异常')+' · 锚点 '+c.anchor.join(',')+' · 刀角 '+(c.bladeAngle==null?'—':c.bladeAngle)+' · r0/r1 '+(c.r0==null?'—':c.r0+'/'+c.r1)+' · 跟刀 '+c.activeSlash;})()],
+ 9821 |     ['角色特效',['简洁','标准','华丽'][fxTier()]+' · 系数 '+fxScale().toFixed(2)+' · 玩家/怪物共用锚点'],
+ 9822 |     ['护甲 EHP','金币 '+GEAR_BALANCE.coinRange+' → 宝石 '+GEAR_BALANCE.gemRange],
+ 9823 |     ['承伤 / 格挡',(function(){const gf=gearFxOf(p);
+ 9824 |       return '×'+gf.dmgTaken.toFixed(2)+' / -'+gf.block+' / 反伤 '+Math.round(gf.thorns*100)+'% / 回盾 '+gf.shieldRegen.toFixed(1);})()],
+ 9825 |     ['疾风单次系数',p&&p.gearFx&&p.gearFx.gale?('×'+(p.galeMul==null?1:p.galeMul).toFixed(2)+' · 无攻速上限'):'—'],
+ 9826 |     ['场上货币',G.pickups.filter(q=>q.kind==='coin'||q.kind==='gem').length+' 堆'],
+ 9827 |     ['护盾',p?Math.ceil(p.shield)+' / '+SHIELD_MAX:'—'],
+ 9828 |     ['弹幕衰减',(function(){
+ 9829 |       const bs=G.bullets.filter(z=>z.fade!=null);
+ 9830 |       const avg=bs.length?bs.reduce((a,z)=>a+z.fade,0)/bs.length:1;
+ 9831 |       return '起 '+BULLET_FADE_START+'px · 最低 '+Math.round(BULLET_FADE_MIN*100)+'% · 当前 ×'+avg.toFixed(2);
+ 9832 |     })()]
+ 9833 |   ];
+ 9834 |   grid.innerHTML=rows.map(r=>'<div class="dbg-item">'+r[0]+'<b>'+String(r[1])+'</b></div>').join('');
+ 9835 |   const raw=$('#dbg-raw'); if(raw) raw.textContent=JSON.stringify(Save.data);
+ 9836 |   const st=$('#dbg-settings'); if(st) st.textContent=SETTINGS_KEY+' → '+JSON.stringify(Settings.data);
+ 9837 | }
+
+/* ---------- [5] 设置页按钮绑定示例 · 原文 9893-9902 ---------- */
+ 9893 |   $('#btn-dev-unlock').addEventListener('click', ()=>{
+ 9894 |     if(!tryEnableDevMode(devInput?devInput.value:'')) devKeyRejected();
+ 9895 |   });
+ 9896 |   $('#btn-dev-refresh').addEventListener('click', ()=>{
+ 9897 |     if(!devModeOn()){ toast('请先开启开发者模式'); return; }
+ 9898 |     const a=ensureDevUnlock(true); syncDevUI();
+ 9899 |     toast(a.ok?'开发者 · 解锁校验通过':'开发者 · 异常 '+a.issues.length+' 项');
+ 9900 |   });
+ 9901 |   $('#btn-dev-close').addEventListener('click', ()=>disableDevMode());
+ 9902 |   $('#btn-open-debug').addEventListener('click', ()=>showScreen('debug'));
+
+/* ---------- [6] 启动自动补齐（本项目不采用） · 原文 10090-10096 ---------- */
+10090 | }
+10091 | function boot(){
+10092 |   setupCanvas(); setupInput(); setupUI(); bakeWeapons(); bakeMonsters();
+10093 |   Settings.load();
+10094 |   if(devModeOn()) ensureDevUnlock(false);   /* 开发者模式：每次启动默认补齐全部解锁 */
+10095 |   syncSettingsUI();
+10096 |   const d=Save.data;
+
