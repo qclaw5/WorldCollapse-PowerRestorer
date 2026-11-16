@@ -4112,7 +4112,8 @@ function buildShop(){
   const render=(box, list, isScroll)=>{
     if(!box) return;
     box.innerHTML='';
-    const shown=list.filter(x=>s.listing.includes(x.id));
+    /* 当前持有的招式始终可见（即使本轮未上架），避免误以为卷轴不见了 */
+    const shown=list.filter(x=>s.listing.includes(x.id) || (isScroll && (Save.data.scrolls||[])[0]===x.id));
     if(!shown.length){ const t=document.createElement('span'); t.className='skill-desc'; t.textContent='本轮未上架'; box.appendChild(t); return; }
     for(const x of shown){
       const got=isScroll ? (Save.data.scrolls||[])[0]===x.id : skillLearned(x.id);
