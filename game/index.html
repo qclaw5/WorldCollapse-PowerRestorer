@@ -3250,13 +3250,13 @@ function warShockwave(p,radius,damage,slow,knockback,duration){
 /* 秩序被动：裁定最多 3 层，第 4 层立即爆炸。
    爆炸对范围内每个敌人叠 1 层；叠到 4 层者也立即爆炸（连锁），绝不残留 4 层。 */
 const ORDER_JUDGE_R = 40;
-const ORDER_JUDGE_MAX_CHAIN = 24;   /* 连锁安全阀，防止病态无限连爆 */
 function orderJudgeBlasts(p, first, dmg){
   const queue=[first];
-  let chain=0;
-  while(queue.length && chain<ORDER_JUDGE_MAX_CHAIN){
-    const t=queue.shift(); chain++;
-    if(!t || t.dead) continue;
+  const blasted=new Set();           /* 每个敌人在本次连锁中只引爆一次，防自激死循环 */
+  while(queue.length){
+    const t=queue.shift();
+    if(!t || t.dead || blasted.has(t.id)) continue;
+    blasted.add(t.id);
     const ox=t.x, oy=t.y-8;
     t.mark=0;                       /* 第 4 层引爆后归零 */
     G.slashes.push({x:ox,y:oy,a:0,arc:TAU,r:ORDER_JUDGE_R,t:0,dur:.34,color:'#fff2c9'});
@@ -3264,12 +3264,12 @@ function orderJudgeBlasts(p, first, dmg){
     burst(ox,oy,20,'#ffe9a8',170);
     G.shake=Math.max(G.shake,7);
     for(const o of G.enemies){
-      if(!o || o.dead) continue;
+      if(!o || o.dead || blasted.has(o.id)) continue;
       if(dist2(o.x,o.y-8,ox,oy) >= ORDER_JUDGE_R*ORDER_JUDGE_R) continue;
       damageEnemy(o, dmg*1.5, {big:true});
       if(o.dead) continue;
-      o.mark=(o.mark||0)+1;        /* 含已满层目标：满 3 层者叠成第 4 层 */
-      if(o.mark>=4) queue.push(o); /* 第 4 层立即引爆，不留在场上 */
+      o.mark=(o.mark||0)+1;        /* 每次爆炸只叠 1 层；满 3 层者叠成第 4 层 */
+      if(o.mark>=4) queue.push(o); /* 第 4 层立即引爆，伤害不衰减，持续连锁 */
     }
   }
 }
@@ -3343,7 +3343,7 @@ function doAttack(p){
       e.vx += dx/d*kb; e.vy += dy/d*kb;
       if(p.skillT>0 && P.id==='karma'){ e.burn = Math.max(e.burn, 3); e.weak = Math.max(e.weak, 4); e.slow = Math.max(e.slow, 4); }
       if(P.id==='order' && !e.dead){
-        orderJudgement(p, e, dmg, ea);
+        orderJudgement(p, e, dmg / galeMul, ea);   /* 秩序被动爆炸不吃疾风拳套衰减 */
         if(!e.dead && isOrderDomainActive(p) && dist2(e.x,e.y,p.x,p.y)<86*86){
           damageEnemy(e,dmg*.5,{big:true});
           G.slashes.push({x:e.x,y:e.y-8,a:ea,arc:.95,r:e.r+19,t:0,dur:.22,color:'#ffe9a8'});
@@ -3367,6 +3367,7 @@ function doAttack(p){
         vx:Math.cos(ang)*A.blade.speed, vy:Math.sin(ang)*A.blade.speed,
         r:A.blade.r, dmg:dmg*A.blade.mul, life:A.blade.life, t:0,
         color:P.color, pierce:0, owner:'p', hit:[], guide:5.2, blade:true,
+        judgeBase:dmg/galeMul,   /* 秩序被动基准：不吃疾风拳套衰减 */
         wallPierce:(P.id==='karma'||P.id==='order') && p.skillT>0 });
     }
     if(P.id==='order' && isOrderDomainActive(p)){
@@ -4707,7 +4708,7 @@ function updateBullets(dt){
             else { for(const o of G.enemies) if(dist2(o.x,o.y,e.x,e.y)<60*60) damageEnemy(o, dmg*.6,{}); }
           }
           damageEnemy(e, dmg, {trueDmg: p.pw.id==='void'});
-          if(p.pw.id==='order' && b.blade && !b.decree) orderJudgement(p, e, dmg, Math.atan2(b.vy,b.vx));
+          if(p.pw.id==='order' && b.blade && !b.decree) orderJudgement(p, e, b.judgeBase||dmg, Math.atan2(b.vy,b.vx));
           if(p.pw.id==='karma' && p.skillT>0){ e.burn=Math.max(e.burn,3); e.weak=Math.max(e.weak,4); e.slow=Math.max(e.slow,4); }
           burst(b.x,b.y,4,p.pw.color,70);
           if(b.pierce>0){ b.pierce--; } else { G.bullets.splice(i,1); break; }
