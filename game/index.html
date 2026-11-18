@@ -885,8 +885,8 @@ const ETYPES = {
 const SAVE_KEY = 'collapse_world_save_v1';
 const Save = {
   data:{ power:null, ult:null, done:[], collapse:20, best:{}, coins:300, gems:6, shop:null },
-  load(){ try{ const s=localStorage.getItem(SAVE_KEY); if(s) Object.assign(this.data, JSON.parse(s)); }catch(e){} return this.data; },
-  save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); }catch(e){} },
+  load(){ try{ const s=localStorage.getItem(SAVE_KEY); if(s) Object.assign(this.data, JSON.parse(s)); }catch(e){ window.__saveErr='load: '+e.message; console.error('[存档]读取失败',e); } return this.data; },
+  save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); }catch(e){ window.__saveErr='save: '+e.message; console.error('[存档]写入失败',e); toast('存档写入失败：'+e.name); } },
   reset(){ this.data={power:null,ult:null,done:[],collapse:20,best:{},scrolls:[],skills:[],coins:300,gems:6,shop:null}; this.save();
     /* 参考 2395-2396：开发者模式开启时，重置存档后立刻补齐解锁 */
     if(typeof ensureDevUnlock==='function') ensureDevUnlock(false); }

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>存档诊断</title>
+<style>
+body{background:#0b0a14;color:#e8e3ff;font:14px/1.7 monospace;padding:20px}
+h1{font-size:18px;color:#cfe4ff}
+.k{color:#8fd0ff}.v{color:#ffe9a8}.bad{color:#ff8fa3}.ok{color:#8cffb0}
+pre{background:#151222;border:1px solid #3a3556;padding:10px;white-space:pre-wrap;word-break:break-all}
+button{background:#2a2140;color:#ffe9a8;border:1px solid #6b5b9a;padding:6px 12px;cursor:pointer;margin:4px 4px 4px 0}
+</style>
+</head>
+<body>
+<h1>存档诊断 · 看这里判断为什么不保存</h1>
+<div id="out">检测中…</div>
+<button onclick="loc()">重新检测</button>
+<button onclick="wipe()">清空本域存档（谨慎）</button>
+<pre id="raw"></pre>
+<script>
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function line(k,v,cls){return '<div><span class="k">'+k+'：</span><span class="'+(cls||'v')+'">'+esc(v)+'</span></div>'}
+function loc(){
+  var o=[];
+  try{ o.push(line('当前地址 location.href',location.href)); }catch(e){ o.push(line('location','读取失败 '+e.message,'bad')); }
+  try{ o.push(line('源 origin',location.origin)); }catch(e){ o.push(line('origin','不支持 '+e.message,'bad')); }
+  try{
+    localStorage.setItem('__probe_write','1');
+    var got=localStorage.getItem('__probe_write');
+    o.push(line('localStorage 写入',got==='1'?'正常':'异常','ok'));
+    localStorage.removeItem('__probe_write');
+  }catch(e){ o.push(line('localStorage','不可用 '+e.name+': '+e.message,'bad')); }
+  var keys=['collapse_world_save_v1','collapse_world_max_level_v1','collapse_world_settings_v1','collapse_world_admin_v1'];
+  keys.forEach(function(k){
+    var raw=null; try{ raw=localStorage.getItem(k); }catch(e){}
+    if(raw===null){ o.push(line(k,'（本域没有）','bad')); return; }
+    var short=raw.length>160?raw.slice(0,160)+'…':raw;
+    o.push(line(k,short,'ok'));
+  });
+  var done=0;
+  try{ var d=JSON.parse(localStorage.getItem('collapse_world_save_v1')||'{}'); done=(d.done||[]).length; }catch(e){}
+  o.push(line('本域存档已解锁关卡',done+' / 50',done>=50?'ok':'bad'));
+  document.getElementById('out').innerHTML=o.join('');
+  document.getElementById('raw').textContent=
+    '存档原始：'+localStorage.getItem('collapse_world_save_v1')+'\n\n'+
+    '设置原始：'+localStorage.getItem('collapse_world_settings_v1')+'\n\n'+
+    '最高关原始：'+localStorage.getItem('collapse_world_max_level_v1');
+}
+function wipe(){
+  if(!confirm('只清空当前这个 origin 的存档？')) return;
+  ['collapse_world_save_v1','collapse_world_max_level_v1','collapse_world_settings_v1','collapse_world_admin_v1']
+    .forEach(function(k){ try{localStorage.removeItem(k)}catch(e){} });
+  loc();
+}
+loc();
+</script>
+</body>
+</html>
