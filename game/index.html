@@ -2689,27 +2689,31 @@ function drawBlock(c, b, th, t){
 /* 地面射程圈：近战短圈+朝向扇形，远程长圈；范围内有敌人时高亮，并标注射程数值 */
 function drawRangeCircle(c,p){
   if(!p || p.dead || !p.pw) return;
-  const P=p.pw, R=heroRange(P), col=P.color;
+  const P=p.pw, realR=heroRange(P), col=P.color;
+  const vw=(G.view&&G.view.w)||480, vh=(G.view&&G.view.h)||270;
+  const visR=Math.min(realR, Math.min(vw,vh)*0.42);  /* 远程真实射程超出视口，收缩成可见圈；数字仍标真实射程 */
   let hot=false;
   for(const e of (G.enemies||[])){
     if(!e || e.dead) continue;
-    if(Math.hypot(e.x-p.x,(e.y-8)-(p.y-8))-e.r <= R){ hot=true; break; }
+    if(Math.hypot(e.x-p.x,(e.y-8)-(p.y-8))-e.r <= realR){ hot=true; break; }
   }
   const pulse = hot ? .5+.5*Math.sin(G.time*6) : 0;
   c.save();
-  c.strokeStyle=col; c.lineWidth=hot?2:1;
-  c.globalAlpha=hot?.22+.16*pulse:.10;
-  c.beginPath(); c.arc(p.x,p.y-8,R,0,TAU); c.stroke();
+  c.strokeStyle=col; c.lineWidth=hot?3:2;
+  c.globalAlpha=hot?.45+.20*pulse:.28;
+  c.beginPath(); c.arc(p.x,p.y-8,visR,0,TAU); c.stroke();
+  c.globalAlpha=hot?.16:.07; c.fillStyle=col;
+  c.beginPath(); c.arc(p.x,p.y-8,visR,0,TAU); c.fill();
   if(P.atk.mode==='melee'){
-    c.globalAlpha=hot?.12+.06*pulse:.05; c.fillStyle=col;
+    c.globalAlpha=hot?.20+.08*pulse:.10;
     const half=(P.atk.arc||1.5)/2;
     c.beginPath(); c.moveTo(p.x,p.y-8);
-    c.arc(p.x,p.y-8,R,p.aimAng-half,p.aimAng+half);
+    c.arc(p.x,p.y-8,visR,p.aimAng-half,p.aimAng+half);
     c.closePath(); c.fill();
   }
-  c.globalAlpha=.9; c.fillStyle=col;
-  c.font='8px monospace'; c.textAlign='center';
-  c.fillText(heroRangeLabel(P), p.x, p.y-8-R-4);
+  c.globalAlpha=1; c.fillStyle=col;
+  c.font='bold 8px monospace'; c.textAlign='center';
+  c.fillText(heroRangeLabel(P), p.x, p.y-8-visR-5);
   c.restore();
 }
 function drawArena(){
