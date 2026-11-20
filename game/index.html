@@ -2698,7 +2698,7 @@ function drawRangeCircle(c,p){
     if(Math.hypot(e.x-p.x,(e.y-8)-(p.y-8))-e.r <= realR){ hot=true; break; }
   }
   c.save();
-  c.strokeStyle=col; c.lineWidth=hot?1.6:1.2;
+  c.strokeStyle=col; c.lineWidth=hot?1:0.8;
   c.globalAlpha=hot?.72:.5;
   c.beginPath(); c.arc(p.x,p.y-8,visR,0,TAU); c.stroke();
   c.globalAlpha=hot?.12:.06; c.fillStyle=col;
@@ -4768,7 +4768,7 @@ function renderBattle(){
   const oy = -Math.round(G.cam.y) + (sh? Math.round(rand(-sh,sh)*.45) : 0);
   c.save(); c.translate(ox, oy);
   drawArena();
-  drawRangeCircle(c, G.player);
+  if(Input.atk) drawRangeCircle(c, G.player);  /* 仅按住普攻时显示射程圈 */
   drawMonsterFx(false);
   drawCore();
   if(G.key) drawKey(G.key);
