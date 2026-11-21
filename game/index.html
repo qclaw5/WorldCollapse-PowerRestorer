@@ -141,15 +141,14 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 #hud .bar span{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(8px,2vmin,11px);
   letter-spacing:.1em;text-shadow:0 1px 0 #000;color:#fff}
 #hud .pname{font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;color:var(--accent);text-shadow:0 2px 0 #000;margin-bottom:4px}.pname.passive{font-size:clamp(8px,1.9vmin,10px);letter-spacing:.08em;margin-top:-2px;margin-bottom:5px}
-/* 王者荣耀标准三技能布局：普攻最大圆在右下；三技能沿一条从攻击往左上的连续斜线依次排列——
-   技能1紧邻攻击（最前）、技能2居中、大招在斜线最远端（最左上）；召唤师技能（冲刺）在最左。
-   怒刃为标准三技能角色（破军/决胜/不屈），同样适用。全部 position:absolute 脱离网格 */
+/* 王者荣耀标准扇形布局：普攻最大圆在右下；三技能绕普攻左上方呈扇形——
+   技能1在普攻左上偏左（最近）、技能2在上方（往普攻方向收）、大招绕回普攻正上方；
+   屏幕上从左到右依次是 冲刺/格挡 → 技能1 → 技能2 → 大招 → 普攻。
+   召唤师技能（冲刺）在普攻正左。全部 position:absolute 脱离网格 */
 .pad{position:absolute;right:calc(12px + var(--safe-r));bottom:calc(14px + var(--safe-b));
   --d:clamp(50px,12vmin,70px); --a:clamp(66px,15vmin,88px); --g:clamp(8px,2vmin,12px);
-  --sx:calc(var(--d)*.6); --sy:calc(var(--d)*.8);
-  --b0:calc(var(--a)/2 + var(--d)*.25);
-  width:calc(var(--a) + var(--d)*3.2 + var(--g)*2);
-  height:calc(var(--a)/2 + var(--d)*2.8 + var(--g)*2);
+  width:calc(var(--a) + var(--g)*2 + var(--d)*2.45);
+  height:calc(var(--a)*.6 + (var(--d) + var(--g))*2 + var(--d));
   pointer-events:none}
 .pbtn{pointer-events:auto;position:absolute;width:var(--d);height:var(--d);border-radius:50%;
   border:2px solid rgba(255,255,255,.16);background:rgba(18,16,32,.72);color:#fff;display:grid;place-items:center;
@@ -157,11 +156,11 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 .pbtn small{display:block;font-size:.72em;color:var(--dim);letter-spacing:.04em;margin-top:1px}
 .pbtn:active{transform:scale(.93)}
 #b-atk{right:0;bottom:0;width:var(--a);height:var(--a)}
-#b-skill{right:var(--b0);bottom:var(--b0)}
-#b-skill2{right:calc(var(--b0) + var(--sx));bottom:calc(var(--b0) + var(--sy))}
-#b-ult{right:calc(var(--b0) + var(--sx)*2);bottom:calc(var(--b0) + var(--sy)*2)}
-#b-dash{right:calc(var(--b0) + var(--sx)*3);bottom:var(--b0)}
-#b-guard{right:calc(var(--b0) + var(--sx)*3 + var(--d) + var(--g));bottom:var(--b0)}
+#b-skill{right:calc(var(--a)*.82);bottom:calc(var(--a)*.6)}
+#b-skill2{right:calc(var(--a)*.6);bottom:calc(var(--a)*.6 + var(--d) + var(--g))}
+#b-ult{right:calc((var(--a) - var(--d))/2);bottom:calc(var(--a)*.6 + (var(--d) + var(--g))*2)}
+#b-dash{right:calc(var(--a) + var(--g) + var(--d)*.35);bottom:calc((var(--a) - var(--d))/2)}
+#b-guard{right:calc(var(--a) + var(--g)*2 + var(--d)*1.35);bottom:calc((var(--a) - var(--d))/2)}
 .pbtn.atk{width:clamp(66px,15vmin,88px);height:clamp(66px,15vmin,88px);border-color:var(--accent);
   background:radial-gradient(circle at 50% 35%,var(--accent-soft),rgba(18,16,32,.8));box-shadow:0 0 20px var(--accent-soft)}
 .pbtn.sk{border-color:var(--accent)}
