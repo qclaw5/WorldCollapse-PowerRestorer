@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#07070d">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>崩解世界 · 权能修复者 · 2026.11.14.1</title>
+<title>崩解世界 · 权能修复者 · 2026.11.20.1</title>
 <style>
 :root{
   --accent:#a86bff; --accent2:#5b2bbf; --accent-soft:rgba(168,107,255,.18);
@@ -141,16 +141,28 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 #hud .bar span{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(8px,2vmin,11px);
   letter-spacing:.1em;text-shadow:0 1px 0 #000;color:#fff}
 #hud .pname{font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;color:var(--accent);text-shadow:0 2px 0 #000;margin-bottom:4px}.pname.passive{font-size:clamp(8px,1.9vmin,10px);letter-spacing:.08em;margin-top:-2px;margin-bottom:5px}
+/* 王者荣耀标准三技能布局：普攻最大圆在右下；三技能沿一条从攻击往左上的连续斜线依次排列——
+   技能1紧邻攻击（最前）、技能2居中、大招在斜线最远端（最左上）；召唤师技能（冲刺）在最左。
+   怒刃为标准三技能角色（破军/决胜/不屈），同样适用。全部 position:absolute 脱离网格 */
 .pad{position:absolute;right:calc(12px + var(--safe-r));bottom:calc(14px + var(--safe-b));
-  display:grid;grid-template-columns:repeat(2,auto);gap:clamp(8px,2vmin,16px);align-items:end;justify-items:center}
-.pbtn{pointer-events:auto;width:clamp(54px,13vmin,78px);height:clamp(54px,13vmin,78px);border-radius:50%;
+  --d:clamp(50px,12vmin,70px); --a:clamp(66px,15vmin,88px); --g:clamp(8px,2vmin,12px);
+  --sx:calc(var(--d)*.6); --sy:calc(var(--d)*.8);
+  --b0:calc(var(--a)/2 + var(--d)*.25);
+  width:calc(var(--a) + var(--d)*3.2 + var(--g)*2);
+  height:calc(var(--a)/2 + var(--d)*2.8 + var(--g)*2);
+  pointer-events:none}
+.pbtn{pointer-events:auto;position:absolute;width:var(--d);height:var(--d);border-radius:50%;
   border:2px solid rgba(255,255,255,.16);background:rgba(18,16,32,.72);color:#fff;display:grid;place-items:center;
-  font-size:clamp(9px,2.2vmin,12px);letter-spacing:.06em;backdrop-filter:blur(2px);cursor:pointer;position:relative}
+  font-size:clamp(9px,2.2vmin,12px);letter-spacing:.06em;backdrop-filter:blur(2px);cursor:pointer}
 .pbtn small{display:block;font-size:.72em;color:var(--dim);letter-spacing:.04em;margin-top:1px}
 .pbtn:active{transform:scale(.93)}
-/* 格挡键浮在按键区上方，不占网格：原有 5 键位置保持不变 */
-#b-guard{position:absolute;left:0;bottom:100%;margin-bottom:clamp(8px,2vmin,16px)}
-.pbtn.atk{width:clamp(66px,16vmin,96px);height:clamp(66px,16vmin,96px);border-color:var(--accent);
+#b-atk{right:0;bottom:0;width:var(--a);height:var(--a)}
+#b-skill{right:var(--b0);bottom:var(--b0)}
+#b-skill2{right:calc(var(--b0) + var(--sx));bottom:calc(var(--b0) + var(--sy))}
+#b-ult{right:calc(var(--b0) + var(--sx)*2);bottom:calc(var(--b0) + var(--sy)*2)}
+#b-dash{right:calc(var(--b0) + var(--sx)*3);bottom:var(--b0)}
+#b-guard{right:calc(var(--b0) + var(--sx)*3 + var(--d) + var(--g));bottom:var(--b0)}
+.pbtn.atk{width:clamp(66px,15vmin,88px);height:clamp(66px,15vmin,88px);border-color:var(--accent);
   background:radial-gradient(circle at 50% 35%,var(--accent-soft),rgba(18,16,32,.8));box-shadow:0 0 20px var(--accent-soft)}
 .pbtn.sk{border-color:var(--accent)}
 .pbtn.ult{border-color:#ffd76b}
@@ -199,7 +211,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
 .chip.err{border-color:#ff5c7a;color:#ff8fa3}
 @media (orientation:landscape) and (min-width:700px){
   .cardwrap{grid-template-columns:repeat(2,1fr)}
-  .pad{grid-template-columns:repeat(5,auto);right:calc(18px + var(--safe-r));bottom:calc(18px + var(--safe-b))}
+  .pad{right:calc(18px + var(--safe-r));bottom:calc(18px + var(--safe-b))}
   #hud .vitals{width:min(32%,340px)}
 }
 @media (orientation:portrait) and (min-width:600px){
@@ -232,7 +244,7 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
           <div style="margin-top:1.6em;color:#5d5878;font-size:clamp(9px,2.2vmin,12px);letter-spacing:.14em;line-height:2">
             武器与弹幕会自动锁定并转向最近的敌人（转向带平滑过渡）<br>
             时间之权的「时间暂停」带有全屏倒计时演出<br>
-            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · Q 权能技 · R 权能技 · E 大招 · F 格挡（习得后）<br>
+            键鼠：WASD 移动 · 左键/J 攻击 · Shift 冲刺 · M 技能一 · K 技能二 · L 大招 · F 格挡（习得后）<br>
             触屏：左半屏拖动移动 · 右侧按钮操作
           </div>
         </div>
@@ -397,9 +409,9 @@ text-shadow:0 3px 0 #000,0 0 22px var(--accent-soft)}
       <div class="bossbar" id="bossbar"><div class="n" id="boss-n">故障守卫</div><div class="bar"><i id="boss-hp"></i></div></div>
       <div class="pad">
         <div class="pbtn hidden" id="b-guard">格挡<small>F</small></div>
-        <div class="pbtn sk" id="b-skill">权能<small id="b-skill-n">Q</small><div class="cd hidden" id="b-skill-cd"></div></div>
-        <div class="pbtn sk" id="b-skill2">权能<small id="b-skill2-n">R</small><div class="cd hidden" id="b-skill2-cd"></div></div>
-        <div class="pbtn ult" id="b-ult">大招<small id="b-ult-n">E</small><div class="cd hidden" id="b-ult-cd"></div></div>
+        <div class="pbtn sk" id="b-skill">技能1<small id="b-skill-n">M</small><div class="cd hidden" id="b-skill-cd"></div></div>
+        <div class="pbtn sk" id="b-skill2">技能2<small id="b-skill2-n">K</small><div class="cd hidden" id="b-skill2-cd"></div></div>
+        <div class="pbtn ult" id="b-ult">大招<small id="b-ult-n">L</small><div class="cd hidden" id="b-ult-cd"></div></div>
         <div class="pbtn" id="b-dash">冲刺<small>Shift</small></div>
         <div class="pbtn atk" id="b-atk">攻击<small>长按</small></div>
       </div>
@@ -535,7 +547,18 @@ const POWERS = [
       desc:'高举陨星战锤砸向地面，对周围大范围敌人造成重击伤害，强力击退并减速。' },
     skill2:{ name:'战意狂潮', duration:10, cooldown:2.3,
       desc:'连放三道递增震荡波；10 秒内伤害 +35%、攻速 +25%、移速 +20%，并立即充满战意。' },
-    brief:'近战 · 重锤 · 范围震荡' }
+    brief:'近战 · 重锤 · 范围震荡' },
+  { id:'blade', name:'怒刃', color:'#ff4655', color2:'#7a1526', metal:'#ffd9a0', hp:160,
+    weapon:'怒刃战刃', tagline:'一刃既出，万敌辟易',
+    atk:{mode:'melee', dmg:28, cd:.42, range:50, arc:1.6, kb:120},
+    passive:'以一敌万：根据敌人数量增加减；自带30%双穿（刺客）',
+    skill:{ name:'破军战刃', duration:0, cooldown:3,
+      desc:'短暂蓄力后向前冲刺：1段175伤害、2段200伤害、3段225伤害；命中敌人立刻解锁下一段，未命中则1秒后解锁下一段；三段使用完毕进入3秒冷却。无冲刺键、无大招，三技能按王者布局（M/K/L）。' },
+    skill2:{ name:'决胜之刃', duration:0, cooldown:5,
+      desc:'向前冲刺造成150伤害，命中敌人获得少量护盾并减少全技能1秒冷却；使用后5秒内战刃附加雷电：普攻以自身为中心范围70造成雷电伤害并眩晕敌人。' },
+    skill3:{ name:'不屈圣刃', duration:0, cooldown:6,
+      desc:'获得高额护盾（三倍最大生命），并获得5秒霸体（免疫击退）与50%减；期间伤害+200%，普攻变为真实伤害。' },
+    brief:'近战 · 三段连斩 · 雷电强化' }
 ];
 const POWER_MAP = Object.fromEntries(POWERS.map(p=>[p.id,p]));
 /* ===== 射程系统：近战=斩击半径，远程=弹体飞行距离；圈/数值/判定/反馈统一真源 ===== */
@@ -1392,9 +1415,9 @@ function setupInput(){
     }
     if(e.key===' ') e.preventDefault();
     if(e.key==='j'||e.key==='J') Input.atk = true;
-    if(e.key==='q'||e.key==='Q') Input.skillReq = true;
-    if(e.key==='r'||e.key==='R'||e.key==='2') Input.skill2Req = true;
-    if(e.key==='e'||e.key==='E') Input.ultReq = true;
+    if(e.key==='m'||e.key==='M') Input.skillReq = true;
+    if(e.key==='k'||e.key==='K') Input.skill2Req = true;
+    if(e.key==='l'||e.key==='L') Input.ultReq = true;
     if(e.key==='f'||e.key==='F') Input.guardReq = true;
     if(e.key==='Escape') togglePause();
   });
@@ -1700,6 +1723,29 @@ const WEAPON_DEFS = {
     s.r(25,15,5,14,'#e4bd8d'); s.r(40,15,3,14,'#471c18');
     s.ln(32,10,35,5,2,'#ffe1ad'); s.ln(36,10,39,5,2,'#ffe1ad');
     s.disc(35,22,3,'#fff0c2');
+  }},
+  blade:{ frames:32, rotate:true, render(g){
+    const s=S(g);
+    /* 刀柄 */
+    s.ln(3,22,14,22,5,'#1c0d10'); s.ln(4,22,13,22,3,'#5c1f22'); s.ln(4,21,13,21,1,'#a03a30');
+    for(let i=0;i<3;i++){ const x=7+i*3; s.r(x,19,2,6,'#2a1014'); s.d(x,20,'#c9574a'); }
+    /* 刀尾 */
+    s.disc(3,22,3,'#26100f'); s.disc(3,22,2,'#ff6b6b'); s.d(3,21,'#ffd9a0');
+    /* 护手 */
+    s.r(13,16,4,12,'#2a1216'); s.r(14,17,2,10,'#8c2f2f'); s.d(15,18,'#ffd9a0'); s.d(15,25,'#ffd9a0');
+    /* 刀身 */
+    s.ln(16,22,40,22,4,'#1a0d12');
+    s.ln(17,20,39,20,2,'#cfd6e4');
+    s.ln(17,21,39,21,1,'#ffffff');
+    s.ln(17,23,39,23,2,'#8c93a8');
+    /* 红色刃光 */
+    s.ln(17,19,38,19,1,'#ff4655');
+    for(let i=0;i<5;i++) s.d(18+i*4,18,'rgba(255,70,85,0.6)');
+    /* 刀尖 */
+    s.ln(40,22,43,22,2,'#cfd6e4'); s.d(43,22,'#ffffff'); s.d(42,21,'#ff4655');
+    /* 血槽符文 */
+    s.d(22,22,'#ff4655'); s.d(28,22,'#ff4655'); s.d(34,22,'#ff4655');
+    for(let i=0;i<4;i++) s.d(20+i*5,24,'rgba(255,217,160,0.5)');
   }}
 };
 function computeBladeGeo(canvas, grip){
@@ -1792,6 +1838,9 @@ function powerAmbient(p,cx,cy,t){
         px(x-2,y,5,1,'#eaf2ff',al*.75); px(x,y-2,1,5,'#cfe4ff',al*.55); break;
       case 'space':
         px(x-1,y,3,1,'#35d6ff',al); px(x,y+1,1,2,'#c8f6ff',al*.6); break;
+      case 'blade':
+        px(x,y,2,2,i%3?'#ff4655':'#ffd9a0',al); px(x+1,y-1,1,1,'#ffffff',al*.7);
+        if(i%3===0) ring(x,y,2,'#ff8fa3',al*.4,1); break;
       default: /* void */
         px(x,y,2,2,'#e2d2ff',al*.8); px(x+2,y+2,1,1,'#a86bff',al*.5); break;
     }
@@ -1908,6 +1957,19 @@ function drawEnemyStatus(e,x,y,dx,dy,sp,T,t,frozen){
     }
     ring(x,y+1,T.r*1.15,'#8fd0ff',.22*k,1);
     pxo(dx-1,dy+h*.62,w+2,1,'#6fa8ff',.16*k);
+  }
+  if((e.stun||0)>0){                        /* 眩晕：头顶雷电弧 + 星圈 */
+    const hy=dy-8-Math.min(8,h*.14);
+    for(let i=0;i<3;i++){
+      const q=fxHash(i,e.id), ph=(t*2.4+q)%1, sx=x-w*.3+q*w*.6;
+      px(sx, hy-Math.sin(ph*Math.PI)*h*.2, 2,2, i%2?'#9fe8ff':'#dffbff', (1-ph)*.9*k);
+    }
+    line(x-4,hy,x-1,hy-5,'#9fe8ff',.75*k,1);
+    line(x-1,hy-5,x+2,hy-2,'#dffbff',.6*k,1);
+    line(x+2,hy-2,x+4,hy-6,'#9fe8ff',.55*k,1);
+    ring(x,hy-4,4+Math.sin(t*10)*1.5,'#9fe8ff',.5*k,1);
+    pxo(dx-2,dy-2,w+4,1,'#9fe8ff',.5*k);
+    if(fxTier()>0) ring(x,y+1,T.r*1.1,'#9fe8ff',.15*k,1);
   }
   if((e.weak||0)>0){
     const wy=dy-6-Math.min(6,h*.10);
@@ -2160,6 +2222,7 @@ const WEAPON_GEO = {
   karma:{grip:20, r0:20, r1:36, oc:-0.25, ow:0.75, tipOff:0.10},
   order:{grip:19, r0:16, r1:35, oc:-0.22, ow:0.32, tipOff:-0.08},
   war:{grip:18, r0:22, r1:39, oc:0, ow:0.90, tipOff:0},
+  blade:{grip:16, r0:10},
   time:{grip:11, r0:5}, life:{grip:11, r0:5},
   fate:{grip:11, r0:5}, space:{grip:11, r0:5}, void:{grip:11, r0:5}
 };
@@ -2317,6 +2380,35 @@ function drawWeaponAura(p, hx, hy, base){
         px(sx,sy,2,2,i%2?'#ffb36e':'#ffe0b0',.75*boost);
       }
       if(p.warReady){ ring(hx,hy,17+Math.sin(t*9)*2,'#ffe0b0',.8,2); pxc(hx,hy,3,'#ffffff',.8); }
+      break; }
+    case 'blade': {
+      for(let i=0;i<8;i++){
+        const a=t*1.3+i*TAU/8, rr=10+Math.sin(t*3+i)*3;
+        const sx=hx+Math.cos(a)*rr, sy=hy+Math.sin(a)*rr;
+        px(sx,sy,2,1,i%2?'#ff4655':'#ffd9a0',.7*boost);
+      }
+      /* 决胜之刃强化：战刃缠绕雷电 */
+      if((p.bladeLightning||0)>0){
+        for(let i=0;i<4;i++){
+          const a=t*7+i*TAU/4;
+          const mx=hx+Math.cos(a)*9, my=hy+Math.sin(a)*9;
+          const nx=hx+Math.cos(a+.5)*14, ny=hy+Math.sin(a+.5)*14;
+          line(mx,my,nx,ny,i%2?'#9fe8ff':'#dffbff',.85,1);
+          px(nx,ny,1,1,'#ffffff',.9);
+        }
+        ring(hx,hy,15,'#9fe8ff',.45,1);
+        if(Math.floor(t*12)%2===0) pxc(hx,hy,3,'#dffbff',.9);
+      }
+      /* 破军战刃蓄力：红色聚气 */
+      if(p.bladeQ && p.bladeQ.charging>0){
+        ring(hx,hy,12+Math.sin(t*20)*2,'#ff4655',.8,2);
+        pxc(hx,hy,4,'#ffd9a0',.9);
+      }
+      /* 不屈圣刃霸体：金红护罩 */
+      if((p.bladeArmor||0)>0){
+        ring(hx,hy,16,'#ffd9a0',.5,1);
+        ring(hx,hy,13,'#ff4655',.35,1);
+      }
       break; }
     case 'void': {
       for(let i=0;i<9;i++){
@@ -2502,6 +2594,7 @@ function drawEnemy(e){
     pxc(x+randi(-5,5),y-12-randi(0,14),2,'#ffb34d',.95);
   }
   if(e.slow>0) pxo(e.x-6, e.y-2, 13, 2, '#6fa8ff', .5);
+  if((e.stun||0)>0) pxo(e.x-7, e.y-4, 15, 2, '#9fe8ff', .55);
   if(e.weak>0) pxo(e.x-4, e.y-24, 9, 2, '#c9a6ff', .6);
   if(!T.boss && e.hp < e.hpMax){
     px(x-T.r, yy-24-T.r*.4, T.r*2, 2, '#1a0f18');
@@ -2945,7 +3038,8 @@ function makePlayer(pwId){
     skillCd:0, skillT:0, skill2Cd:0, skill2T:0, skill2Tick:0, s2:freshS2(),
     shield:0, guard:freshGuard(), cardFx:null, lastScrollT:-99, ult:0, ultT:0, karma:0, lifeTick:0, warHits:0, warReady:false, markTarget:null,
     pw:P, atkCount:0, roll:0, aimAng:0, atkAng:0, tgt:null, lockFx:0, turnBoost:0,
-    trail:[], trailT:0, dustT:0, hitShake:0, arcGhost:0 };
+    trail:[], trailT:0, dustT:0, hitShake:0, arcGhost:0,
+    bladeQ:{stage:1, unlockT:0, charging:0}, lunge:null, bladeLightning:0, bladeArmor:0, blade3Cd:0 };
 }
 function startLevel(id){
   const L = LEVEL_MAP[id]; if(!L) return;
@@ -2974,9 +3068,17 @@ function startLevel(id){
   $('#bossbar').classList.remove('on');
   $('#b-skill-n').textContent = POWER_MAP[G.power].skill.name;
   $('#b-skill2-n').textContent = POWER_MAP[G.power].skill2.name;
-  $('#b-ult-n').textContent = G.ult==='u_order'
-    ? (G.orderNextAnnihilation ? '秩序焚灭' : '秩序审判')
-    : ULT_MAP[G.ult].name;
+  if(G.power==='blade'){                      /* 怒刃：E=不屈圣刃，无大招 */
+    $('#b-ult-n').textContent = POWER_MAP[G.power].skill3.name;
+  } else {
+    $('#b-ult-n').textContent = G.ult==='u_order'
+      ? (G.orderNextAnnihilation ? '秩序焚灭' : '秩序审判')
+      : (ULT_MAP[G.ult] ? ULT_MAP[G.ult].name : '大招');
+  }
+  const _isBlade = G.power==='blade';
+  $('#b-dash').classList.toggle('hidden', _isBlade);                    /* 怒刃：无冲刺键 */
+  $('#b-ult').classList.toggle('ult', !_isBlade);                       /* E 不再显示为大招样式 */
+  $('#hud-en').closest('.bar').classList.toggle('hidden', _isBlade);    /* 怒刃：无大招能量条 */
   showScreen('battle');
   startPart(0);
   toast(G.replayCleared ? L.name + ' · 已修复关卡，崩解度保护已启用' : L.name + ' · ' + L.sub);
@@ -3085,7 +3187,7 @@ function spawnEnemy(type, at){
   const hpScale = 1 + Math.max(0, levelIndex-14)*.025;
   const scaledHp=Math.round(T.hp*hpScale);
   const e = { id:randi(1,9999), type, x, y, vx:0, vy:0, r:T.r, hp:scaledHp, hpMax:scaledHp,
-    cool:rand(.4,1.6), hurt:0, burn:0, slow:0, weak:0, charging:0, chargeCd:rand(1,3),
+    cool:rand(.4,1.6), hurt:0, burn:0, slow:0, weak:0, stun:0, charging:0, chargeCd:rand(1,3),
     blinkCd:rand(1,2.5), aimX:0, aimY:1, touchCd:0, dead:false, pull:0, mark:0,
     orderFlameT:0, orderFlamePermanent:false, orderBurnT:0,
     summonCd:rand(4,6), bossPhase:3 };
@@ -3120,6 +3222,10 @@ function damageEnemy(e, dmg, opt){
   // Apply once at the central damage entry point, after existing attack bonuses.
   let d = dmg * (spaceTimeDamageBonusActive() ? 2 : 1) *
     (karmaSkillDamageBonusActive() ? 2 : 1);
+  if(!opt.silent && G.player && G.player.pw.id==='blade'){
+    d *= 1.3;                               /* 怒刃被动：30%双穿折算增伤（刺客） */
+    if((G.player.bladeArmor||0)>0) d *= 3;  /* 不屈圣刃期间：伤害+200% */
+  }
   if(!opt.silent && G.player && G.player.pw.id==='void' && G.player.skill2T>0) d *= 1.5;
   if(e.weak>0) d *= 1.2;
   if(!opt.silent && G.player && G.player.pw.id==='fate'){
@@ -3129,7 +3235,10 @@ function damageEnemy(e, dmg, opt){
   }
   if(Admin.on && Admin.instakill && !opt.silent) d = e.hp+1;
   for(const z of G.zones) if(z.kind==='order' && dist2(e.x,e.y,z.x,z.y) < z.r*z.r) d *= 1.3;
-  if(T.armor && !opt.trueDmg) d *= (1 - T.armor);
+  if(T.armor && !opt.trueDmg){
+    const pen=(G.player&&G.player.pw.id==='blade')?0.7:1;
+    d *= (1 - T.armor*pen);
+  }
   e.hp -= d; e.hurt = .12;
   if(!opt.silent && G.player && G.player.pw.id==='fate'){
     const fx=G.player.cardFx;
@@ -3231,6 +3340,12 @@ function hurtPlayer(dmg){
   const pNow=G.player;
   if(pNow && pNow.guard && pNow.guard.pose>0){ guardSuccess(pNow,dmg); return false; }
   if(pNow && pNow.pw.id==='fate' && pNow.cardFx) dmg*=pNow.cardFx.dmgTaken;
+  /* 怒刃被动 以一敌万：150范围内敌人越多减伤越高（1敌0、2敌1/2、3敌2/3……）；霸体期间再减50% */
+  if(pNow && pNow.pw.id==='blade'){
+    const n=bladeNearEnemies(pNow);
+    if(n>0) dmg /= n;
+    if((pNow.bladeArmor||0)>0) dmg *= .5;
+  }
   if(pNow && pNow.shield>0){ const a=Math.min(pNow.shield,dmg); pNow.shield-=a; dmg-=a; if(dmg<=0) return false; }
   const p=G.player;
   if(p.inv>0 || p.dashT>0) return;
@@ -3360,7 +3475,7 @@ function doAttack(p){
       const ea = Math.atan2(dy,dx);
       let diff = Math.abs(((ea - ang + Math.PI*3) % TAU) - Math.PI);
       if(diff > arc/2) continue;
-      damageEnemy(e, dmg, {});
+      damageEnemy(e, dmg, {trueDmg: P.id==='blade'&&(p.bladeArmor||0)>0});
       if(P.id==='war') meleeHits++;
       const hpx = p.x + dx*0.72, hpy = p.y-8 + dy*0.72;
       G.slashes.push({x:hpx, y:hpy, a:ea, arc:0, r:12, t:0, dur:.16, color:'#ffffff', spark:true});
@@ -3392,6 +3507,8 @@ function doAttack(p){
         if(p.warHits>=4){ p.warHits=0; p.warReady=true; toast('战意已满 · 下一击触发震荡'); }
       }
     }
+    /* 怒刃：决胜之刃强化期间，普攻附加雷电（以自身为中心范围70，伤害+眩晕） */
+    if(P.id==='blade' && (p.bladeLightning||0)>0) bladeLightningStrike(p, dmg);
     if(A.blade){
       G.bullets.push({ x:p.x+Math.cos(ang)*14, y:p.y-10+Math.sin(ang)*14,
         vx:Math.cos(ang)*A.blade.speed, vy:Math.sin(ang)*A.blade.speed,
@@ -3433,6 +3550,7 @@ function rollFate(p, dmg){
   G.fateBoom = true; return dmg*1.5;
 }
 function tryDash(p){
+  if(p.pw.id==='blade') return;            /* 怒刃：无冲刺 */
   if(p.dashCd>0 || p.dashT>0) return;
   const I=Input;
   let dx = I.move.x, dy = I.move.y;
@@ -3457,6 +3575,7 @@ function tryDash(p){
   }
 }
 function trySkill(p){
+  if(p.pw.id==='blade') return tryBladeQ(p);   /* 怒刃：破军战刃（三段） */
   if(p.skillCd>0) return;
   const P=p.pw, S=P.skill;
   p.skillCd = S.cooldown; p.skillT = S.duration;
@@ -3505,6 +3624,138 @@ function trySkill(p){
     warShockwave(p,116,P.atk.dmg*3.2*HERO_BALANCE.damageMul,2.2,270,.56);
     G.shake=Math.max(G.shake,13);
     for(let i=0;i<10;i++) G.parts.push(mkPart(p.x,p.y-8,P.metal,{sp:rand(90,190),life:rand(.22,.48),size:2,g:24}));
+  }
+}
+/* ============================================================
+   英雄「怒刃」：无冲刺 / 无大招 / 三技能（M 破军战刃 · K 决胜之刃 · L 不屈圣刃）
+   被动 以一敌万：屏幕内每多一个敌人增加减伤（1敌不减伤、2敌减1/2、3敌减2/3……）
+   突进方向：触控端=移动摇杆方向，电脑端=鼠标方向（不锁定敌人）
+   ============================================================ */
+const BLADE_S1_DMG = [175, 200, 225];   /* 破军战刃 1/2/3 段伤害 */
+const BLADE_S1_CD  = 3;                 /* 三段用完后的冷却 */
+const BLADE_R_DMG   = 150;              /* 决胜之刃冲刺伤害 */
+function bladeNearEnemies(p){
+  let n=0;
+  const cam=G.cam||{x:0,y:0}, view=G.view||{w:1e4,h:1e4};
+  const vx0=cam.x, vy0=cam.y, vw=view.w, vh=view.h;
+  for(const e of G.enemies){
+    if(e.dead || e.hp<=0) continue;
+    const m=e.r||8;                        /* 身体任何部分在屏幕内都算 */
+    if(e.x+m>vx0 && e.x-m<vx0+vw && (e.y-8)+m>vy0 && (e.y-8)-m<vy0+vh) n++;
+  }
+  return n;
+}
+/* —— 突进方向：电脑端鼠标优先（S2W 换算屏幕→世界坐标），触控端用移动摇杆方向 —— */
+function bladeDashDir(p){
+  if(Input.hasMouse){
+    const w=S2W(Input.mx,Input.my);
+    const dx=w.x-p.x, dy=w.y-(p.y-8);
+    if(Math.hypot(dx,dy)>4) return Math.atan2(dy,dx);
+  }
+  const mv=Input.move||{x:0,y:0};
+  if(Math.hypot(mv.x,mv.y)>.15) return Math.atan2(mv.y,mv.x);
+  return p.aimAng;
+}
+/* —— 技能一 破军战刃：短暂蓄力 → 突进斩击，三段递增 —— */
+function tryBladeQ(p){
+  const q=p.bladeQ;
+  if(p.skillCd>0 || q.unlockT>0 || q.charging>0) return;
+  if(p.lunge) return;                       /* 突进途中不可再次蓄力 */
+  q.charging = .25;                         /* 短暂蓄力 */
+  toast('破军战刃 · '+q.stage+'段 蓄力');
+}
+/* —— 技能三 不屈圣刃：高额护盾 + 5秒霸体 + 50%减伤 —— */
+function tryBlade3(p){
+  if(p.blade3Cd>0) return;
+  p.blade3Cd = p.pw.skill3.cooldown;
+  const amount = p.hpMax*3;
+  p.shield = (p.shield||0) + amount;
+  p.bladeArmor = 5;
+  G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:64,t:0,dur:.5,color:p.pw.metal});
+  G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:36,t:0,dur:.42,color:p.pw.color});
+  burst(p.x, p.y-8, 26, p.pw.metal, 190);
+  flash(p.pw.metal, .4); G.shake=Math.max(G.shake,10);
+  toast('不屈圣刃 · 护盾 +'+amount+' · 霸体5秒 · 减伤50%');
+}
+/* —— 突进结算：Q 段位推进 / R 命中奖励 —— */
+function bladeLungeEnd(p){
+  const l=p.lunge; p.lunge=null;
+  if(!l) return;
+  if(l.source==='Q'){
+    const q=p.bladeQ, st=q.stage;
+    if(st>=3){
+      p.skillCd = BLADE_S1_CD; q.stage=1; q.unlockT=0;
+      toast('破军战刃 · 三段完毕 · 冷却 '+BLADE_S1_CD+' 秒');
+    } else {
+      q.stage = st+1;
+      q.unlockT = l.hitAny ? 0 : 1.0;      /* 命中立刻解锁；未命中 1 秒后解锁 */
+      toast(l.hitAny ? '破军战刃 · 命中 · '+q.stage+'段就绪'
+                     : '破军战刃 · 未命中 · 1秒后解锁'+q.stage+'段');
+    }
+  } else if(l.source==='R' && l.hitAny){
+    p.shield = (p.shield||0) + 40;          /* 少量护盾 */
+    p.skillCd   = Math.max(0, p.skillCd - 1);      /* 全技能 CD -1 秒 */
+    if(p.s2) p.s2.cd = Math.max(0, p.s2.cd - 1);
+    p.blade3Cd = Math.max(0, p.blade3Cd - 1);
+    burst(p.x, p.y-8, 12, p.pw.metal, 120);
+    toast('决胜之刃 · 命中 · 护盾+40 · 全技能CD-1秒');
+  }
+}
+/* —— 决胜之刃强化普攻：战刃附加雷电，以自身为中心范围70 伤害 + 眩晕 —— */
+function bladeLightningStrike(p, dmg){
+  const R=70, x=p.x, y=p.y-8;
+  for(const e of G.enemies){
+    if(e.dead || e.hp<=0) continue;
+    const rr=R+(e.r||8);
+    if(dist2(e.x,e.y-8,x,y) < rr*rr){
+      damageEnemy(e, dmg*.9, {big:true, trueDmg:(p.bladeArmor||0)>0});
+      if(!e.dead) e.stun=Math.max(e.stun||0, .8);
+    }
+  }
+  G.slashes.push({x,y,a:0,arc:TAU,r:R,t:0,dur:.30,color:'#9fe8ff'});
+  G.slashes.push({x,y,a:0,arc:TAU,r:R*.62,t:0,dur:.24,color:'#dffbff'});
+  burst(x,y,10,'#9fe8ff',130);
+  flash('#9fe8ff',.14);
+}
+/* —— 怒刃逐帧：蓄力推进、突进命中、增益计时 —— */
+function updateBlade(p, dt, combatActive){
+  if(p.pw.id!=='blade') return;
+  const q=p.bladeQ;
+  if(q.unlockT>0) q.unlockT=Math.max(0,q.unlockT-dt);
+  if(q.charging>0){
+    q.charging -= dt;
+    if(Math.random()<.7)
+      G.parts.push(mkPart(p.x+rand(-12,12), p.y-10+rand(-10,4), p.pw.color,
+        {sp:rand(20,70), life:rand(.12,.30), size:1, g:0}));
+    if(q.charging<=0){
+      const a=bladeDashDir(p);                /* 移动摇杆/鼠标方向，不锁定敌人 */
+      p.dashT=.32; p.dashX=Math.cos(a); p.dashY=Math.sin(a);
+      p.inv=Math.max(p.inv,.3);
+      p.lunge={ source:'Q', dmg:BLADE_S1_DMG[q.stage-1], hit:[], t:.32, hitAny:false };
+      G.slashes.push({x:p.x,y:p.y-8,a:a,arc:.85,r:26,t:0,dur:.22,color:p.pw.color});
+      flash(p.pw.color,.15);
+    }
+  }
+  if(p.bladeLightning>0) p.bladeLightning=Math.max(0,p.bladeLightning-dt);
+  if(p.bladeArmor>0)     p.bladeArmor=Math.max(0,p.bladeArmor-dt);
+  if(p.blade3Cd>0) p.blade3Cd=Math.max(0,p.blade3Cd-dt);   /* CD 恒定流动 */
+  if(p.lunge){
+    p.lunge.t -= dt;
+    for(const e of G.enemies){
+      if(e.dead || e.hp<=0 || p.lunge.hit.includes(e.id)) continue;
+      const rr=(e.r||8)+15;
+      if(dist2(e.x,e.y-8,p.x,p.y-8) < rr*rr){
+        p.lunge.hit.push(e.id);
+        if(p.lunge.source==='Q'){
+          damageEnemy(e, p.lunge.dmg, {big:true});
+          e.vx += (p.dashX||0)*140; e.vy += (p.dashY||0)*140;
+        } else if(p.lunge.source==='R'){
+          damageEnemy(e, p.lunge.dmg, {big:true});   /* 决胜之刃：冲刺150伤害 */
+        }
+        p.lunge.hitAny = true;
+      }
+    }
+    if(p.lunge.t<=0) bladeLungeEnd(p);
   }
 }
 function freshS2(){ return { cd:0, phase:'idle', t:0, dur:0, data:null, fx:null }; }
@@ -3880,17 +4131,36 @@ const SKILL2 = {
       }
     },
     expire(p,s){ s2VoidBurst(p,s,false); }
+  },
+  blade:{ name:'决胜之刃', btn:'决胜', cd:5, dur:.4,
+    color:'#ff4655', dark:'#7a1526',
+    desc:'向前冲刺造成150伤害，命中敌人获得少量护盾并减少全部技能1秒冷却；使用后5秒内战刃附加雷电：普攻以自身为中心范围70造成雷电伤害并眩晕。',
+    first(p,s){
+      const a=bladeDashDir(p);
+      p.dashT=.26; p.dashX=Math.cos(a); p.dashY=Math.sin(a);
+      p.inv=Math.max(p.inv,.25);
+      p.lunge={ source:'R', dmg:BLADE_R_DMG, hit:[], t:.26, hitAny:false };
+      G.slashes.push({x:p.x,y:p.y-8,a:a,arc:.8,r:26,t:0,dur:.24,color:'#ff4655'});
+      flash('#ff4655',.16);
+    },
+    tick(){},
+    /* 冲刺结束后：获得雷电强化普攻（5 秒） */
+    expire(p,s){
+      p.bladeLightning = 5;
+      burst(p.x, p.y-8, 8, '#9fe8ff', 110);
+      toast('决胜之刃 · 战刃附加雷电 5 秒');
+    }
   }
 };
 function trySkill2(p){
-  if(!Settings.data.skill2On) return;
+  if(!Settings.data.skill2On && p.pw.id!=='blade') return;   /* 怒刃的 R 是核心技能，不受二技能开关影响 */
   const def=s2Def(p); if(!def) return legacySkill2(p);
   const s=p.s2;
   if(s.phase==='active'){ if(def.second) def.second(p,s); return; }
   if(s.cd>0) return;
   s.cd=def.cd; s.phase='active'; s.t=0; s.dur=def.dur; s.data=null; s.fx=null;
   def.first(p,s);
-  toast(def.name + (def.secondHint ? ' · 再按 R '+def.secondHint : ''));
+  toast(def.name + (def.secondHint ? ' · 再按 K '+def.secondHint : ''));
 }
 function updateSkill2(dt){
   const p=G.player; if(!p||!p.s2) return;
@@ -3996,6 +4266,7 @@ const SKILL_MAP=Object.fromEntries(SKILL_DEFS.map(s=>[s.id,s]));
 function scrollFoes(x,y,r){ return G.enemies.filter(e=>!e.dead && dist2(e.x,e.y-8,x,y)<(r+e.r)*(r+e.r)); }
 function scrollHit(e,v){ damageEnemy(e,v,{big:true}); }
 function tryCastScroll(p,ang,base){
+  if(p.pw.id==='blade') return null;   /* 怒刃：除自身三技能外不触发任何卷轴招式 */
   const ids=Save.data.scrolls||[]; if(!ids.length) return null;
   const def=SCROLL_MAP[ids[0]]; if(!def) return null;
   if(G.time-(p.lastScrollT||-99)<SCROLL_MIN_GAP) return null;
@@ -4009,7 +4280,7 @@ function skillLearned(id){ return (Save.data.skills||[]).indexOf(id)>=0; }
 function freshGuard(){ return {bar:100,pose:0,exhaust:0}; }
 function guardState(p){ return p.guard||(p.guard=freshGuard()); }
 function tryGuard(p){
-  if(!skillLearned('k_guard')) return;
+  if(!skillLearned('k_guard')||p.pw.id==='blade') return;
   const g=guardState(p);
   if(g.exhaust>0 || g.bar<25) return;
   g.bar-=25; g.pose=.45;
@@ -4017,7 +4288,7 @@ function tryGuard(p){
   G.slashes.push({x:p.x,y:p.y-8,a:0,arc:TAU,r:26,t:0,dur:.22,color:'#ffd76b'});
 }
 function updateGuard(p,dt){
-  if(!skillLearned('k_guard')) return;
+  if(!skillLearned('k_guard')||p.pw.id==='blade') return;
   const g=guardState(p);
   g.pose=Math.max(0,g.pose-dt);
   if(g.exhaust>0){ g.exhaust=Math.max(0,g.exhaust-dt); if(g.exhaust===0) g.bar=Math.max(g.bar,25); }
@@ -4034,6 +4305,7 @@ function guardSuccess(p,dmg){
   return true;
 }
 function dashScrollSkill(p,dx,dy){
+  if(p.pw.id==='blade') return;
   const base=p.pw.atk.dmg*HERO_BALANCE.damageMul;
   if(skillLearned('k_dashslash')){
     G.slashes.push({x:p.x,y:p.y-8,a:Math.atan2(dy,dx),arc:2.2,r:78,t:0,dur:.30,color:'#8bd4ff'});
@@ -4049,6 +4321,7 @@ function dashScrollSkill(p,dx,dy){
   }
 }
 function scrollHudText(){
+  if(G.player&&G.player.pw.id==='blade') return '';
   const sc=(Save.data.scrolls||[]).length, sk=(Save.data.skills||[]).length;
   if(!sc && !sk) return '';
   const g=G.player&&G.player.guard;
@@ -4281,6 +4554,9 @@ function legacySkill2(p){
   }
 }
 function tryUlt(p){
+  if(p.pw.id==='blade') return;            /* 怒刃：无大招 */
+  const U0 = ULT_MAP[G.ult];
+  if(!U0) return;
   if(p.ult < 100) return;
   p.ult = 0; p.ultT = 1.2;
   const U = ULT_MAP[G.ult];
@@ -4381,12 +4657,14 @@ function updateBattle(dt){
   p.lockFx = tgt ? Math.min(1, (p.lockFx||0) + dt*6) : Math.max(0, (p.lockFx||0) - dt*6);
   const combatActive = G.enemies.some(e=>!e.dead && e.hp>0) || (G.phase==='core' && G.core && G.core.hp>0);
   p.atkCd -= dt; p.dashCd -= dt;
-  if(combatActive) p.skillCd = Math.max(0, p.skillCd-dt);
-  if(combatActive) p.skill2Cd = Math.max(0, p.skill2Cd-dt);
+  p.skillCd = Math.max(0, p.skillCd-dt);        /* CD 恒定流动，不因清场间隙暂停 */
+  p.skill2Cd = Math.max(0, p.skill2Cd-dt);
   updateSkill2(dt);
   updateTarot(dt);
   updateGuard(p,dt);
-  if(Admin.on && Admin.noCd){ p.skillCd=0; p.skill2Cd=0; p.s2.cd=0; p.ult=100; p.dashCd=0; }
+  updateBlade(p,dt,combatActive);
+  if(Admin.on && Admin.noCd){ p.skillCd=0; p.skill2Cd=0; p.s2.cd=0; p.ult=100; p.dashCd=0;
+    p.blade3Cd=0; if(p.bladeQ){ p.bladeQ.unlockT=0; } }
   if(p.skill2T>0 && combatActive){
     p.skill2T = Math.max(0, p.skill2T-dt);
     if(p.pw.id==='life'){
@@ -4454,10 +4732,10 @@ function updateBattle(dt){
   } else p.arcGhost = Math.max(0, (p.arcGhost||0) - dt);
   p.hitShake = Math.max(0, (p.hitShake||0) - dt*26);
   if(I.guardReq){ I.guardReq=false; tryGuard(p); }
-  if(I.dashReq){ I.dashReq=false; tryDash(p); }
+  if(I.dashReq){ I.dashReq=false; if(p.pw.id!=='blade') tryDash(p); }
   if(I.skillReq){ I.skillReq=false; trySkill(p); }
   if(I.skill2Req){ I.skill2Req=false; trySkill2(p); }
-  if(I.ultReq){ I.ultReq=false; tryUlt(p); }
+  if(I.ultReq){ I.ultReq=false; if(p.pw.id==='blade') tryBlade3(p); else tryUlt(p); }
   if(I.atk && p.atkCd<=0) doAttack(p);
   healPlayer(HERO_BALANCE.passiveRegen*dt);
   if(p.pw.id==='life'){
@@ -4557,6 +4835,7 @@ function updateEnemies(dt){
     }
     e.hurt = Math.max(0, e.hurt-dt); e.burn = Math.max(0,e.burn-dt);
     e.slow = Math.max(0,e.slow-dt); e.weak = Math.max(0,e.weak-dt);
+    e.stun = Math.max(0,(e.stun||0)-dt);
     e.touchCd -= dt*(orderFlameActive && !rangedEnemy ? .25 : 1);
     if(e.burn>0){
       // Burn damage also follows the Time's End + Space Power damage bonus.
@@ -4572,6 +4851,14 @@ function updateEnemies(dt){
       if(e.pull<=0){ e.pullX = null; e.pullY = null; }
     }
     if(frozen){ resolveEnemyBlocks(e); continue; }
+    if((e.stun||0)>0){                    /* 怒刃雷电眩晕：冻结 AI，仅保留滑动衰减 */
+      e.vx*=.82; e.vy*=.82;
+      const mvS=Math.hypot(e.vx,e.vy)*dt, stS=Math.max(1,Math.min(8,Math.ceil(mvS/5))), sdS=dt/stS;
+      for(let s2=0;s2<stS;s2++){ e.x += e.vx*sdS; e.y += e.vy*sdS; resolveEnemyBlocks(e); }
+      e.x = clamp(e.x, 12, G.arena.w-12);
+      e.y = clamp(e.y, 16, G.arena.h-12);
+      continue;
+    }
     const inOrderDomain=G.zones.some(z=>z.kind==='order' && dist2(e.x,e.y,z.x,z.y)<z.r*z.r);
     const slowMul = Math.min(e.slow>0 ? .55 : 1, inOrderDomain ? .60 : 1,
       (p && p.cardFx) ? p.cardFx.enemySlow : 1);
@@ -4684,7 +4971,10 @@ function updateEnemies(dt){
       const evaded = hurtPlayer(T.dmg * (e.type==='brute'&&e.charging>0 ? 1.4 : 1)) === false;
       if(!evaded){
         if(e.type==='siphon' && !orderFlameActive) e.hp=Math.min(e.hpMax,e.hp+10);
-        const kb=120; p.vx -= ux*kb; p.vy -= uy*kb;
+        const kb=120;
+        if(p.pw.id==='blade' && (p.bladeArmor||0)>0){ /* 不屈圣刃霸体：免疫击退 */
+          burst(p.x,p.y-8,4,'#ffd76b',60);
+        } else { p.vx -= ux*kb; p.vy -= uy*kb; }
       }
     }
   }
@@ -4881,6 +5171,21 @@ function updateHud(){
     const bonus=karmaSkillDamageBonusActive() ? ' · 凝冥额外伤害 +100%' : '';
     passive.textContent=`业层 ${p.karma||0}/${KARMA_MAX_STACKS} · 伤害 +${((p.karma||0)*2).toFixed(0)}%${bonus}`;
     passive.style.color=p.pw.color;
+  } else if(p.pw.id==='blade'){
+    passive.classList.remove('hidden');
+    const q=p.bladeQ||{stage:1,unlockT:0,charging:0};
+    const seg=[`破军 ${q.stage}/3段`];
+    if(q.charging>0) seg.push('蓄力中');
+    else if(q.unlockT>0) seg.push(`下段 ${q.unlockT.toFixed(1)}s`);
+    else if(p.skillCd>0) seg.push(`CD ${p.skillCd.toFixed(1)}s`);
+    if((p.bladeLightning||0)>0) seg.push(`雷电 ${p.bladeLightning.toFixed(1)}s`);
+    if((p.bladeArmor||0)>0) seg.push(`霸体·减伤50% ${p.bladeArmor.toFixed(1)}s`);
+    if((p.shield||0)>0) seg.push(`盾 ${Math.ceil(p.shield)}`);
+    const n=bladeNearEnemies(p);
+    if(n>1) seg.push(`以一敌万·${n}敌 减伤${Math.round((1-1/n)*100)}%`);
+    passive.textContent=seg.join(' · ');
+    passive.style.color=(p.bladeArmor||0)>0?'#ffd76b':p.pw.color;
+    $('#b-skill-n').textContent=`${p.pw.skill.name}·${q.stage}段`;
   } else { passive.classList.add('hidden'); }
   const fateTxt=fateHudText(), scrollTxt=scrollHudText();
   if(fateTxt || scrollTxt){
@@ -4900,13 +5205,17 @@ function updateHud(){
     const pct = Math.floor((1 - G.core.hp/G.core.max)*100);
     $('#hud-wave').textContent = `修复故障核心 ${pct}%`;
   }
-  $('#b-guard').classList.toggle('hidden', !skillLearned('k_guard'));
+  $('#b-guard').classList.toggle('hidden', !skillLearned('k_guard')||(G.player&&G.player.pw.id==='blade'));
   const skillBtn=$('#b-skill'), sk=$('#b-skill-cd'),
         s2Btn=$('#b-skill2'), s2=$('#b-skill2-cd'), ul=$('#b-ult-cd');
   if(p.skillCd>0){
     skillBtn.classList.remove('ready');
     sk.classList.remove('hidden');
     sk.textContent = p.skillCd < 1 ? `${Math.max(0,p.skillCd).toFixed(2)}` : `${Math.ceil(p.skillCd)}`;
+  } else if(p.pw.id==='blade' && p.bladeQ && p.bladeQ.unlockT>0){
+    skillBtn.classList.remove('ready');      /* 怒刃：未命中惩罚，下段解锁倒计时 */
+    sk.classList.remove('hidden');
+    sk.textContent = p.bladeQ.unlockT.toFixed(1);
   } else {
     sk.classList.add('hidden');
     skillBtn.classList.add('ready');
@@ -4916,7 +5225,13 @@ function updateHud(){
     s2Btn.classList.remove('ready'); s2.classList.remove('hidden');
     s2.textContent = s2cd < 1 ? `${Math.max(0,s2cd).toFixed(2)}` : `${Math.ceil(s2cd)}`;
   } else { s2.classList.add('hidden'); s2Btn.classList.add('ready'); }
-  if(p.ult<100){ ul.classList.remove('hidden'); ul.textContent = Math.floor(p.ult)+'%'; $('#b-ult').classList.remove('ready'); }
+  if(p.pw.id==='blade'){                     /* 怒刃：E=不屈圣刃，按 CD 显示 */
+    if(p.blade3Cd>0){
+      ul.classList.remove('hidden');
+      ul.textContent = p.blade3Cd<1 ? `${p.blade3Cd.toFixed(2)}` : `${Math.ceil(p.blade3Cd)}`;
+      $('#b-ult').classList.remove('ready');
+    } else { ul.classList.add('hidden'); $('#b-ult').classList.add('ready'); }
+  } else if(p.ult<100){ ul.classList.remove('hidden'); ul.textContent = Math.floor(p.ult)+'%'; $('#b-ult').classList.remove('ready'); }
   else { ul.classList.add('hidden'); $('#b-ult').classList.add('ready'); }
 }
 let toastT=0;
@@ -5019,14 +5334,17 @@ function buildPowerCards(){
            <div class="power-fact"><span>射程</span><b>${heroRangeLabel(P)}</b></div>
          </div>
          <div class="power-passive"><span>被动能力</span><b>${P.passive}</b></div>`;
-      const s1=P.skill, s2=P.skill2;
+      const s1=P.skill, s2=P.skill2, s3=P.skill3;
       $('#skill-detail').innerHTML =
         `<div class="detail-title">专属技能</div>
-         <div class="skill-head"><b class="skill-name">${s1.name}</b><span class="skill-key">Q · CD ${s1.cooldown}s${s1.duration?` · ${s1.duration}s`:''}</span></div>
+         <div class="skill-head"><b class="skill-name">${s1.name}</b><span class="skill-key">M · CD ${s1.cooldown}s${s1.duration?` · ${s1.duration}s`:''}</span></div>
          <p class="skill-desc">${s1.desc}</p>
          <div class="skill-sep"></div>
-         <div class="skill-head"><b class="skill-name">${s2.name}</b><span class="skill-key">R · CD ${s2.cooldown}s${s2.duration?` · ${s2.duration}s`:''}</span></div>
-         <p class="skill-desc">${s2.desc}</p>`;
+         <div class="skill-head"><b class="skill-name">${s2.name}</b><span class="skill-key">K · CD ${s2.cooldown}s${s2.duration?` · ${s2.duration}s`:''}</span></div>
+         <p class="skill-desc">${s2.desc}</p>`+
+        (s3?`<div class="skill-sep"></div>
+         <div class="skill-head"><b class="skill-name">${s3.name}</b><span class="skill-key">L · CD ${s3.cooldown}s${s3.duration?` · ${s3.duration}s`:''}</span></div>
+         <p class="skill-desc">${s3.desc}</p>`:'');
       $('#btn-power-next').disabled = false;
     });
     wrap.appendChild(el);
@@ -5134,7 +5452,7 @@ function buildMap(){
     const zone = L.parts===1 ? '单地图' : `${L.parts}图`;
     n.innerHTML=`<div class="dot"></div><div class="nm">${L.name}</div>`+
       `<div class="lv">${L.chapterShort} ${L.chIdx}/${L.chTotal} · ${zone}${L.finalBoss?' · 终极BOSS':L.boss?' · BOSS':''}</div>`;
-    if(isOpen) n.addEventListener('click', ()=>{ G.power=G.power||d.power; G.ult=G.ult||d.ult; startLevel(L.id); });
+    if(isOpen) n.addEventListener('click', ()=>{ G.power=G.power||d.power; G.ult=G.ult||d.ult; if(G.power==='blade') G.ult=null; startLevel(L.id); });
     canvas.appendChild(n);
   });
   $('#map-stat').textContent = `已修复 ${d.done.length} / ${LEVELS.length}`;
@@ -5143,7 +5461,7 @@ function buildMap(){
   $('#collapse-fill').style.width = G.collapse+'%';
   $('#collapse-val').textContent = Math.floor(G.collapse)+'%';
   $('#chip-power').textContent = '权能 · ' + (POWER_MAP[G.power]?.name || '—');
-  $('#chip-ult').textContent  = '大招 · ' + (ULT_MAP[G.ult]?.name || '—');
+  $('#chip-ult').textContent  = G.power==='blade' ? '大招 · 无（三技能制）' : ('大招 · ' + (ULT_MAP[G.ult]?.name || '—'));
   const nextIndex=LEVELS.findIndex(L=>!d.done.includes(L.id));
   const focus=LEVELS[nextIndex<0?LEVELS.length-1:nextIndex];
   const focusY=(focus.y/100)*canvas.clientHeight;
@@ -5175,6 +5493,7 @@ function setupUI(){
       Save.save();
     }
     G.power=d.power; G.ult=d.ult||ULTS[0].id; G.collapse=d.collapse||20;
+    if(G.power==='blade') G.ult=null;        /* 怒刃：无大招 */
     syncAccent(); buildMap(); showScreen('map');
   });
   $('#btn-power-back').addEventListener('click', ()=>{
@@ -5185,7 +5504,14 @@ function setupUI(){
   });
   $('#btn-power-next').addEventListener('click', ()=>{
     if(!G.power) return;
-    Save.data.power=G.power; Save.save();
+    Save.data.power=G.power;
+    if(G.power==='blade'){                    /* 怒刃：无大招，跳过大招选择直接进世界地图 */
+      G.ult=null; Save.data.ult=null; Save.save();
+      if(powerReturnToMap){ powerReturnToMap=false; powerBeforeMapChange=null; syncAccent(); buildMap(); showScreen('map'); return; }
+      if(!Save.data.done || !Save.data.done.length) Save.data.collapse=G.collapse;
+      Save.save(); buildMap(); showScreen('map'); return;
+    }
+    Save.save();
     if(powerReturnToMap){ powerReturnToMap=false; powerBeforeMapChange=null; syncAccent(); buildMap(); showScreen('map'); return; }
     $('#ult-screen-step').textContent='2 / 2';
     $('#btn-ult-back').textContent='返 回';
